@@ -27,6 +27,7 @@ interface JournalCard {
   }>;
   timestamp: string;
   summaryImage?: string;
+  destinationPhoto?: string;
   summaryData?: {
     before?: { stage: string; emotion: string; timestamp: Date };
     during?: { stage: string; emotion: string; timestamp: Date };
@@ -195,7 +196,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
               {/* Card Content */}
               <div className="p-4 space-y-3">
-                <div className="space-y-1 relative">
+                <div className="space-y-2 relative">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -207,13 +208,38 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                   >
                     <Edit2 className="h-4 w-4" />
                   </Button>
-                  <h3 className="text-base font-medium pr-8">{card.locationTitle || 'Unknown Location'}</h3>
-                  <p className="text-sm text-muted-foreground">{card.playlistCategoryName || card.category}</p>
-                  {card.spotifyPlaylistName && (
-                    <p className="text-xs text-muted-foreground italic">{card.spotifyPlaylistName} - Spotify</p>
-                  )}
-                  <p className="text-sm text-muted-foreground">
-                    {new Date(card.timestamp).toLocaleDateString()} • {card.moodEntries.length} emotions • {' '}
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1">
+                      <h3 className="text-base font-medium pr-8">{card.locationTitle || 'Unknown Location'}</h3>
+                      <p className="text-sm text-muted-foreground">{card.playlistCategoryName || card.category}</p>
+                      {card.spotifyPlaylistName && (
+                        <p className="text-xs text-muted-foreground italic">{card.spotifyPlaylistName} - Spotify</p>
+                      )}
+                    </div>
+                    {card.destinationPhoto && (
+                      <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 border-border">
+                        <img 
+                          src={card.destinationPhoto} 
+                          alt="Destination"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Mood Entries Summary */}
+                  <div className="space-y-1 pt-2 border-t border-border">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Mood Journey</p>
+                    {card.moodEntries.map((entry, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-xs">
+                        <span className="text-muted-foreground capitalize font-medium min-w-[60px]">{entry.stage}:</span>
+                        <span className="capitalize">{entry.emotion}</span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground pt-2">
+                    {new Date(card.timestamp).toLocaleDateString()} • {' '}
                     <span className="font-medium capitalize">
                       {card.category === 'peaceful' && '🌊 Peaceful'}
                       {card.category === 'social' && '✨ Social'}
