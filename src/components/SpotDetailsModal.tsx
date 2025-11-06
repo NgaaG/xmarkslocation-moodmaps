@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { type Spot, getCategoryLabel, type SpotCategory, type Playlist } from '@/data/spots';
 import MoodVisualizer from './MoodVisualizer';
 import SpotDetailsTutorial from './SpotDetailsTutorial';
+import GpsAppSelector from './GpsAppSelector';
 
 interface SpotDetailsModalProps {
   spot: Spot;
@@ -20,6 +21,7 @@ const SpotDetailsModal = ({ spot, onClose }: SpotDetailsModalProps) => {
   const [playlistOpened, setPlaylistOpened] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [showHelpHighlight, setShowHelpHighlight] = useState(false);
+  const [gpsAppSelectorOpen, setGpsAppSelectorOpen] = useState(false);
   
   // Check if help icon should be highlighted
   useEffect(() => {
@@ -48,61 +50,7 @@ const SpotDetailsModal = ({ spot, onClose }: SpotDetailsModalProps) => {
   const categories: SpotCategory[] = ['peaceful', 'social', 'scenic'];
 
   const handleNavigate = () => {
-    const { latitude, longitude, name } = spot;
-    const encodedName = encodeURIComponent(name);
-    
-    // Detect device type
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isAndroid = /Android/.test(navigator.userAgent);
-    
-    if (isIOS) {
-      // iOS: Show options for Apple Maps, Google Maps, or Waze
-      const userChoice = confirm(
-        `Open "${name}" in:\n\nOK = Apple Maps\nCancel = Choose Google Maps or Waze`
-      );
-      
-      if (userChoice) {
-        // Apple Maps with location name
-        window.location.href = `maps://?daddr=${latitude},${longitude}&q=${encodedName}`;
-      } else {
-        const googleOrWaze = confirm('OK = Google Maps\nCancel = Waze');
-        if (googleOrWaze) {
-          // Google Maps with location name
-          window.location.href = `comgooglemaps://?daddr=${encodedName}&center=${latitude},${longitude}`;
-          // Fallback to web if app not installed
-          setTimeout(() => {
-            window.open(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&destination_place_id=${encodedName}`, '_blank');
-          }, 500);
-        } else {
-          // Waze with location name
-          window.location.href = `waze://?ll=${latitude},${longitude}&navigate=yes&q=${encodedName}`;
-          // Fallback to web if app not installed
-          setTimeout(() => {
-            window.open(`https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes&q=${encodedName}`, '_blank');
-          }, 500);
-        }
-      }
-    } else if (isAndroid) {
-      // Android: Show options for Google Maps or Waze
-      const userChoice = confirm(
-        `Open "${name}" in:\n\nOK = Google Maps\nCancel = Waze`
-      );
-      
-      if (userChoice) {
-        // Google Maps with location name
-        window.location.href = `geo:${latitude},${longitude}?q=${encodedName}`;
-      } else {
-        // Waze with location name
-        window.location.href = `waze://?ll=${latitude},${longitude}&navigate=yes&q=${encodedName}`;
-        // Fallback to web if app not installed
-        setTimeout(() => {
-          window.open(`https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes&q=${encodedName}`, '_blank');
-        }, 500);
-      }
-    } else {
-      // Desktop: Open Google Maps with location name in new tab
-      window.open(`https://www.google.com/maps/search/?api=1&query=${encodedName}+${latitude},${longitude}`, '_blank');
-    }
+    setGpsAppSelectorOpen(true);
   };
 
   return (
@@ -279,7 +227,15 @@ const SpotDetailsModal = ({ spot, onClose }: SpotDetailsModalProps) => {
           </Tabs>
         </div>
       </DialogContent>
+      
       <SpotDetailsTutorial isOpen={isTutorialOpen} onClose={() => setIsTutorialOpen(false)} />
+      <GpsAppSelector 
+        isOpen={gpsAppSelectorOpen}
+        onClose={() => setGpsAppSelectorOpen(false)}
+        locationName={spot.name}
+        latitude={spot.latitude}
+        longitude={spot.longitude}
+      />
     </Dialog>
   );
 };

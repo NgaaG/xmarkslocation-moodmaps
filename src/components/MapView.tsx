@@ -14,14 +14,31 @@ interface MapViewProps {
 const MapView = ({ selectedCategory, onCategoryChange, mapMode, helpButton }: MapViewProps) => {
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
   const [userLocationSpots, setUserLocationSpots] = useState<Spot[]>([]);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Generate spots based on user location for nationwide and global modes
+  // Calculate distance between two coordinates in kilometers
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
+
+  // Get user location and generate spots for nationwide/global modes
   useEffect(() => {
-    if (mapMode === 'nationwide' || mapMode === 'global') {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation({ lat: latitude, lng: longitude });
+          
+          // Only generate nearby spots for nationwide/global modes
+          if (mapMode === 'nationwide' || mapMode === 'global') {
             
             // Generate 6 nearby spots (2 per category) with realistic outdoor location names
             const generatedSpots: Spot[] = [
@@ -169,19 +186,19 @@ const MapView = ({ selectedCategory, onCategoryChange, mapMode, helpButton }: Ma
             ];
             
             setUserLocationSpots(generatedSpots);
-          },
-          (error) => {
-            console.warn('Geolocation error:', error);
-            // Keep empty array if geolocation fails
-            setUserLocationSpots([]);
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
           }
-        );
-      }
+        },
+        (error) => {
+          console.warn('Geolocation error:', error);
+          // Keep empty array if geolocation fails
+          setUserLocationSpots([]);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
     } else {
       // Clear user location spots when switching back to campus mode
       setUserLocationSpots([]);
@@ -190,9 +207,16 @@ const MapView = ({ selectedCategory, onCategoryChange, mapMode, helpButton }: Ma
 
   const displaySpots = (mapMode === 'nationwide' || mapMode === 'global') ? userLocationSpots : spots;
   
+  // Sort spots by distance from user location (walking distance first)
+  const sortedSpots = userLocation ? [...displaySpots].sort((a, b) => {
+    const distanceA = calculateDistance(userLocation.lat, userLocation.lng, a.latitude, a.longitude);
+    const distanceB = calculateDistance(userLocation.lat, userLocation.lng, b.latitude, b.longitude);
+    return distanceA - distanceB;
+  }) : displaySpots;
+  
   const filteredSpots = selectedCategory
-    ? displaySpots.filter(spot => spot.category === selectedCategory)
-    : displaySpots;
+    ? sortedSpots.filter(spot => spot.category === selectedCategory)
+    : sortedSpots;
 
   // Calculate map center based on spots
   const mapCenter: [number, number] = filteredSpots.length > 0
