@@ -134,6 +134,8 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
   const [hasValidSelection, setHasValidSelection] = useState(false);
   const [currentLocationTitle, setCurrentLocationTitle] = useState<string>('');
   const [currentSpotifyPlaylist, setCurrentSpotifyPlaylist] = useState<string>('');
+  const [showPhotoCapture, setShowPhotoCapture] = useState(false);
+  const [destinationPhoto, setDestinationPhoto] = useState<string | null>(null);
   
   // Category mapping for playlists
   const playlistCategories = {
@@ -566,6 +568,28 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
     }
   };
 
+  const handlePhotoCapture = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.setAttribute('capture', 'environment');
+    input.onchange = (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const imageData = event.target?.result as string;
+          setDestinationPhoto(imageData);
+          setShowPhotoCapture(false);
+          // Now proceed to save
+          handleSaveToJournal();
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+    input.click();
+  };
+
   const handleSaveToJournal = async () => {
     if (moodEntries.length !== 3) return;
     
@@ -602,6 +626,60 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
       }
     }
     
+    // Combine destination photo with summary if both exist
+    let finalImage = screenshotData;
+    if (destinationPhoto && screenshotData) {
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          // Load both images
+          const destImg = new Image();
+          const summaryImg = new Image();
+          
+          await new Promise<void>((resolve) => {
+            let loadedCount = 0;
+            const checkLoaded = () => {
+              loadedCount++;
+              if (loadedCount === 2) resolve();
+            };
+            
+            destImg.onload = checkLoaded;
+            summaryImg.onload = checkLoaded;
+            destImg.src = destinationPhoto;
+            summaryImg.src = screenshotData!;
+          });
+          
+          // Set canvas size - place images side by side or stacked
+          const padding = 20;
+          canvas.width = Math.max(destImg.width, summaryImg.width);
+          canvas.height = destImg.height + summaryImg.height + padding * 3;
+          
+          // White background
+          ctx.fillStyle = '#fafafa';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Draw destination photo on top
+          const destX = (canvas.width - destImg.width) / 2;
+          ctx.drawImage(destImg, destX, padding, destImg.width, destImg.height);
+          
+          // Draw summary below
+          const summaryY = destImg.height + padding * 2;
+          const summaryX = (canvas.width - summaryImg.width) / 2;
+          ctx.drawImage(summaryImg, summaryX, summaryY, summaryImg.width, summaryImg.height);
+          
+          finalImage = canvas.toDataURL('image/png');
+        }
+      } catch (error) {
+        console.error('Failed to combine images:', error);
+        // Fallback to just the summary
+        finalImage = screenshotData;
+      }
+    } else if (destinationPhoto) {
+      // Only destination photo, no summary
+      finalImage = destinationPhoto;
+    }
+    
     // Build summary text
     const summary = {
       before: moodEntries.find(e => e.stage === 'before'),
@@ -629,7 +707,8 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
       })),
       timestamp: new Date().toISOString(),
       summaryData: summary,
-      summaryImage: screenshotData
+      summaryImage: finalImage,
+      destinationPhoto: destinationPhoto
     };
     
     // Save to localStorage
@@ -664,6 +743,8 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
       setCurrentStage('before');
       setSelectedMood(null);
       moodRef.current = null;
+      setDestinationPhoto(null);
+      setShowPhotoCapture(false);
     }, 2000);
   };
 
@@ -885,10 +966,10 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
                     </Button>
                     <Button
                       className="flex-1 gap-2"
-                      onClick={handleSaveToJournal}
+                      onClick={() => setShowPhotoCapture(true)}
                     >
-                      <Save className="w-4 h-4" />
-                      Save Journey
+                      <Camera className="w-4 h-4" />
+                      Add Destination Photo
                     </Button>
                   </>
                 )}
@@ -933,6 +1014,47 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
                     </span>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Photo Capture Prompt */}
+      {showPhotoCapture && (
+        <div 
+          className="absolute inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center animate-fade-in z-10"
+        >
+          <div 
+            className="bg-background/95 backdrop-blur-sm rounded-2xl p-8 shadow-2xl border border-white/10 max-w-md mx-4 animate-scale-in relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center space-y-4">
+              <Camera className="w-16 h-16 mx-auto text-primary" />
+              <h3 className="text-lg font-medium text-foreground">
+                Capture Your Destination
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Take a photo of your final location to save with your mood journey
+              </p>
+              <div className="flex gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowPhotoCapture(false);
+                    handleSaveToJournal();
+                  }}
+                >
+                  Skip
+                </Button>
+                <Button
+                  className="flex-1 gap-2"
+                  onClick={handlePhotoCapture}
+                >
+                  <Camera className="w-4 h-4" />
+                  Take Photo
+                </Button>
               </div>
             </div>
           </div>

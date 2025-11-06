@@ -283,20 +283,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                   alt="Journey summary"
                   className="w-full h-auto"
                 />
-                <div className="absolute bottom-4 right-4 flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      if (selectedCardId) {
-                        handlePhotoUpload(selectedCardId, true);
-                        setSelectedImage(null);
-                      }
-                    }}
-                    className="gap-2"
-                  >
-                    <Image className="w-4 h-4" />
-                    Replace
-                  </Button>
+                <div className="absolute bottom-4 right-4">
                   <Button
                     onClick={() => {
                       const card = journalCards.find(c => c.id === selectedCardId);
