@@ -64,10 +64,14 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  const handlePhotoUpload = (cardId: string) => {
+  const handlePhotoUpload = (cardId: string, useCamera: boolean = false) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
+    // Enable camera on mobile devices
+    if (useCamera) {
+      input.setAttribute('capture', 'environment');
+    }
     input.onchange = (e: Event) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
@@ -229,7 +233,8 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                         setSelectedImage(card.summaryImage);
                         setSelectedCardId(card.id);
                       } else {
-                        handlePhotoUpload(card.id);
+                        // Trigger camera on mobile, file picker on desktop
+                        handlePhotoUpload(card.id, true);
                       }
                       window.dispatchEvent(new CustomEvent('tutorial-journal-edit'));
                     }}
@@ -278,7 +283,20 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                   alt="Journey summary"
                   className="w-full h-auto"
                 />
-                <div className="absolute bottom-4 right-4">
+                <div className="absolute bottom-4 right-4 flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (selectedCardId) {
+                        handlePhotoUpload(selectedCardId, true);
+                        setSelectedImage(null);
+                      }
+                    }}
+                    className="gap-2"
+                  >
+                    <Image className="w-4 h-4" />
+                    Replace
+                  </Button>
                   <Button
                     onClick={() => {
                       const card = journalCards.find(c => c.id === selectedCardId);

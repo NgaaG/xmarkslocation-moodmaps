@@ -86,9 +86,9 @@ const TutorialGuide = ({ isOpen, onClose }: TutorialGuideProps) => {
 
   const tutorialElement = (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 animate-fade-in">
-      {/* Backdrop - no pointer events to prevent accidental close */}
+      {/* Backdrop - cannot close by clicking */}
       <div 
-        className="absolute inset-0 bg-background/80 backdrop-blur-sm pointer-events-none" 
+        className="absolute inset-0 bg-background/80 backdrop-blur-sm" 
       />
       
       {/* Tutorial list dialog */}
