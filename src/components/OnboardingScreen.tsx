@@ -71,30 +71,30 @@ const OnboardingScreen = ({ onComplete }: OnboardingScreenProps) => {
   const Icon = slide.icon;
 
   const content = (
-    <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4 sm:p-6 bg-background/95 backdrop-blur-lg animate-fade-in">
+    <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4 sm:p-6 bg-background/95 backdrop-blur-lg animate-in fade-in duration-700">
       <div className="relative max-w-md w-full">
         {/* Skip button */}
         <Button
           variant="ghost"
           size="sm"
           onClick={handleSkip}
-          className="absolute -top-8 sm:-top-12 right-0 text-muted-foreground hover:text-foreground text-sm sm:text-base"
+          className="absolute -top-8 sm:-top-12 right-0 text-muted-foreground hover:text-foreground text-sm sm:text-base animate-in fade-in slide-in-from-top-4 duration-500 delay-300"
         >
           Skip
         </Button>
 
         {/* Slide content */}
-        <div className="flex flex-col items-center text-center space-y-6 sm:space-y-8 animate-scale-in px-4 sm:px-0">
+        <div className="flex flex-col items-center text-center space-y-6 sm:space-y-8 px-4 sm:px-0">
           {/* Icon */}
           <div 
-            className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center shadow-2xl animate-pulse"
+            className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center shadow-2xl animate-in zoom-in duration-500 delay-100"
             style={{ backgroundColor: slide.color + '/20', borderColor: slide.color, borderWidth: '3px' }}
           >
-            <Icon className="w-10 h-10 sm:w-12 sm:h-12" style={{ color: slide.color }} />
+            <Icon className="w-10 h-10 sm:w-12 sm:h-12 animate-in fade-in duration-700 delay-300" style={{ color: slide.color }} />
           </div>
 
           {/* Text */}
-          <div className="space-y-3 sm:space-y-4">
+          <div className="space-y-3 sm:space-y-4 animate-in slide-in-from-bottom-4 duration-500 delay-200">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
               {slide.title}
             </h1>
@@ -104,11 +104,11 @@ const OnboardingScreen = ({ onComplete }: OnboardingScreenProps) => {
           </div>
 
           {/* Progress dots */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 animate-in fade-in duration-500 delay-300">
             {slides.map((_, index) => (
               <div
                 key={index}
-                className={`h-2 rounded-full transition-all duration-300 ${
+                className={`h-2 rounded-full transition-all duration-500 ease-out ${
                   index === currentSlide 
                     ? 'w-8 bg-primary' 
                     : 'w-2 bg-muted'
@@ -121,7 +121,7 @@ const OnboardingScreen = ({ onComplete }: OnboardingScreenProps) => {
           <Button
             onClick={handleNext}
             size="lg"
-            className="w-full gap-2 shadow-lg hover:shadow-xl transition-shadow"
+            className="w-full gap-2 shadow-lg hover:shadow-xl transition-all duration-300 animate-in slide-in-from-bottom-4 fade-in delay-400"
           >
             {currentSlide < slides.length - 1 ? (
               <>

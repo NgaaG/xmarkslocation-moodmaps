@@ -13,41 +13,41 @@ const ModeToggle = ({ mode, onModeChange }: ModeToggleProps) => {
         variant={mode === 'campus' ? 'default' : 'ghost'}
         size="sm"
         onClick={() => onModeChange('campus')}
-        className="rounded-full min-h-[40px] sm:min-h-[44px] min-w-[40px] sm:min-w-[44px] px-2 sm:px-3"
+        className="rounded-full min-h-[40px] sm:min-h-[44px] px-2 sm:px-3"
         aria-label="University campus map view"
       >
         <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
-        <span className="ml-1 sm:ml-2 hidden sm:inline text-xs sm:text-sm">Campus</span>
+        <span className="ml-1 sm:ml-2 text-xs sm:text-sm">Campus</span>
       </Button>
       <Button
         variant={mode === 'nationwide' ? 'default' : 'ghost'}
         size="sm"
         onClick={() => onModeChange('nationwide')}
-        className="rounded-full min-h-[40px] sm:min-h-[44px] min-w-[40px] sm:min-w-[44px] px-2 sm:px-3"
+        className="rounded-full min-h-[40px] sm:min-h-[44px] px-2 sm:px-3"
         aria-label="Nationwide map view"
       >
         <Map className="w-4 h-4 sm:w-5 sm:h-5" />
-        <span className="ml-1 sm:ml-2 hidden sm:inline text-xs sm:text-sm">NL</span>
+        <span className="ml-1 sm:ml-2 text-xs sm:text-sm">NL</span>
       </Button>
       <Button
         variant={mode === 'global' ? 'default' : 'ghost'}
         size="sm"
         onClick={() => onModeChange('global')}
-        className="rounded-full min-h-[40px] sm:min-h-[44px] min-w-[40px] sm:min-w-[44px] px-2 sm:px-3"
+        className="rounded-full min-h-[40px] sm:min-h-[44px] px-2 sm:px-3"
         aria-label="Global map view"
       >
         <Globe className="w-4 h-4 sm:w-5 sm:h-5" />
-        <span className="ml-1 sm:ml-2 hidden sm:inline text-xs sm:text-sm">Global</span>
+        <span className="ml-1 sm:ml-2 text-xs sm:text-sm">Global</span>
       </Button>
       <Button
         variant={mode === 'journal' ? 'default' : 'ghost'}
         size="sm"
         onClick={() => onModeChange('journal')}
-        className="rounded-full min-h-[40px] sm:min-h-[44px] min-w-[40px] sm:min-w-[44px] px-2 sm:px-3"
+        className="rounded-full min-h-[40px] sm:min-h-[44px] px-2 sm:px-3"
         aria-label="Journal view"
       >
         <Notebook className="w-4 h-4 sm:w-5 sm:h-5" />
-        <span className="ml-1 sm:ml-2 hidden sm:inline text-xs sm:text-sm">Journal</span>
+        <span className="ml-1 sm:ml-2 text-xs sm:text-sm">Journal</span>
       </Button>
     </div>
   );
