@@ -80,10 +80,10 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         reader.onload = (event) => {
           const imageData = event.target?.result as string;
           
-          // Update the card with the image
+          // Update the card with the destination photo
           const updatedCards = journalCards.map(card => 
             card.id === cardId 
-              ? { ...card, summaryImage: imageData }
+              ? { ...card, destinationPhoto: imageData }
               : card
           );
           
@@ -91,8 +91,8 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
           localStorage.setItem('moodJournalEntries', JSON.stringify(updatedCards));
           
           toast({
-            title: "Photo added! 📸",
-            description: "Your journey photo has been saved",
+            title: "Destination photo added! 📸",
+            description: "Your destination photo has been saved",
           });
         };
         reader.readAsDataURL(file);
@@ -101,16 +101,62 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     input.click();
   };
 
-  const handleDownloadImage = (imageData: string, playlistName: string) => {
-    const link = document.createElement('a');
-    link.href = imageData;
-    link.download = `${playlistName}-journey.png`;
-    link.click();
+  const handleDownloadImage = async (card: JournalCard) => {
+    if (!card.summaryImage) return;
     
-    toast({
-      title: "Downloaded! 💾",
-      description: "Journey saved to your device",
-    });
+    // If there's a destination photo, combine both images
+    if (card.destinationPhoto) {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      // Load both images
+      const destImg = document.createElement('img');
+      const summaryImg = document.createElement('img');
+      
+      await Promise.all([
+        new Promise<void>((resolve) => {
+          destImg.onload = () => resolve();
+          destImg.src = card.destinationPhoto!;
+        }),
+        new Promise<void>((resolve) => {
+          summaryImg.onload = () => resolve();
+          summaryImg.src = card.summaryImage!;
+        })
+      ]);
+      
+      // Set canvas size (destination on top, summary on bottom)
+      canvas.width = Math.max(destImg.width, summaryImg.width);
+      canvas.height = destImg.height + summaryImg.height;
+      
+      // Draw destination photo on top
+      ctx.drawImage(destImg, 0, 0);
+      
+      // Draw summary below
+      ctx.drawImage(summaryImg, 0, destImg.height);
+      
+      // Download combined image
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `${card.playlistName || 'journey'}-complete.png`;
+      link.click();
+      
+      toast({
+        title: "Downloaded! 💾",
+        description: "Complete journey with destination photo saved",
+      });
+    } else {
+      // Download just the summary image
+      const link = document.createElement('a');
+      link.href = card.summaryImage;
+      link.download = `${card.playlistName || 'journey'}.png`;
+      link.click();
+      
+      toast({
+        title: "Downloaded! 💾",
+        description: "Journey saved to your device",
+      });
+    }
   };
 
   const handleEditCard = (card: JournalCard) => {
@@ -196,7 +242,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
               {/* Card Content */}
               <div className="p-4 space-y-3">
-                <div className="space-y-2 relative">
+                <div className="space-y-1 relative">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -208,38 +254,39 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                   >
                     <Edit2 className="h-4 w-4" />
                   </Button>
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1">
-                      <h3 className="text-base font-medium pr-8">{card.locationTitle || 'Unknown Location'}</h3>
-                      <p className="text-sm text-muted-foreground">{card.playlistCategoryName || card.category}</p>
-                      {card.spotifyPlaylistName && (
-                        <p className="text-xs text-muted-foreground italic">{card.spotifyPlaylistName} - Spotify</p>
-                      )}
-                    </div>
-                    {card.destinationPhoto && (
-                      <div className="flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 border-border">
-                        <img 
-                          src={card.destinationPhoto} 
-                          alt="Destination"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
-                  </div>
+                  <h3 className="text-base font-medium pr-8">{card.locationTitle || 'Unknown Location'}</h3>
+                  <p className="text-sm text-muted-foreground">{card.playlistCategoryName || card.category}</p>
+                  {card.spotifyPlaylistName && (
+                    <p className="text-xs text-muted-foreground italic">{card.spotifyPlaylistName} - Spotify</p>
+                  )}
                   
                   {/* Mood Entries Summary */}
-                  <div className="space-y-1 pt-2 border-t border-border">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Mood Journey</p>
+                  <div className="space-y-1 pt-2">
                     {card.moodEntries.map((entry, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-xs">
-                        <span className="text-muted-foreground capitalize font-medium min-w-[60px]">{entry.stage}:</span>
-                        <span className="capitalize">{entry.emotion}</span>
+                        <span className="text-muted-foreground capitalize">{entry.stage}:</span>
+                        <span className="capitalize font-medium">{entry.emotion}</span>
                       </div>
                     ))}
                   </div>
                   
-                  <p className="text-xs text-muted-foreground pt-2">
-                    {new Date(card.timestamp).toLocaleDateString()} • {' '}
+                  {/* Destination Photo Gallery */}
+                  {card.destinationPhoto && (
+                    <div className="pt-2 border-t border-border">
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Destination Photo</p>
+                      <div className="w-full h-32 rounded-md overflow-hidden border border-border">
+                        <img 
+                          src={card.destinationPhoto} 
+                          alt="Destination"
+                          className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => setSelectedImage(card.destinationPhoto!)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  <p className="text-sm text-muted-foreground pt-2">
+                    {new Date(card.timestamp).toLocaleDateString()} • {card.moodEntries.length} emotions • {' '}
                     <span className="font-medium capitalize">
                       {card.category === 'peaceful' && '🌊 Peaceful'}
                       {card.category === 'social' && '✨ Social'}
@@ -258,15 +305,24 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                       if (card.summaryImage) {
                         setSelectedImage(card.summaryImage);
                         setSelectedCardId(card.id);
-                      } else {
-                        // Trigger camera on mobile, file picker on desktop
-                        handlePhotoUpload(card.id, true);
                       }
                       window.dispatchEvent(new CustomEvent('tutorial-journal-edit'));
                     }}
                   >
                     <Image className="w-4 h-4 mr-2" />
                     Photo
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex-1 min-h-[44px]"
+                    onClick={() => {
+                      handlePhotoUpload(card.id, true);
+                      window.dispatchEvent(new CustomEvent('tutorial-journal-edit'));
+                    }}
+                  >
+                    <Image className="w-4 h-4 mr-2" />
+                    Upload
                   </Button>
                   <Button variant="outline" size="sm" className="flex-1 min-h-[44px]" disabled>
                     <Video className="w-4 h-4 mr-2" />
@@ -313,8 +369,8 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                   <Button
                     onClick={() => {
                       const card = journalCards.find(c => c.id === selectedCardId);
-                      if (selectedImage && card) {
-                        handleDownloadImage(selectedImage, card.playlistName || 'journey');
+                      if (card) {
+                        handleDownloadImage(card);
                       }
                     }}
                     className="gap-2"
