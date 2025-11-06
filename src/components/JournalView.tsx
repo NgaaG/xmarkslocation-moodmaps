@@ -104,7 +104,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
   const handleDownloadImage = async (card: JournalCard) => {
     if (!card.summaryImage) return;
     
-    // If there's a destination photo, combine both images
+    // If there's a destination photo, create a minimalistic collage
     if (card.destinationPhoto) {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -125,15 +125,34 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         })
       ]);
       
-      // Set canvas size (destination on top, summary on bottom)
-      canvas.width = Math.max(destImg.width, summaryImg.width);
-      canvas.height = destImg.height + summaryImg.height;
+      // Minimalistic collage layout with padding
+      const padding = 40;
+      const gap = 30;
+      const maxWidth = 1200;
       
-      // Draw destination photo on top
-      ctx.drawImage(destImg, 0, 0);
+      // Scale images to fit within maxWidth while maintaining aspect ratio
+      const scale = Math.min(1, (maxWidth - padding * 2) / Math.max(destImg.width, summaryImg.width));
+      const scaledDestWidth = destImg.width * scale;
+      const scaledDestHeight = destImg.height * scale;
+      const scaledSummaryWidth = summaryImg.width * scale;
+      const scaledSummaryHeight = summaryImg.height * scale;
       
-      // Draw summary below
-      ctx.drawImage(summaryImg, 0, destImg.height);
+      // Set canvas size with padding
+      canvas.width = Math.max(scaledDestWidth, scaledSummaryWidth) + padding * 2;
+      canvas.height = scaledDestHeight + scaledSummaryHeight + gap + padding * 2;
+      
+      // Clean white background
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Center and draw destination photo on top
+      const destX = (canvas.width - scaledDestWidth) / 2;
+      ctx.drawImage(destImg, destX, padding, scaledDestWidth, scaledDestHeight);
+      
+      // Center and draw summary below with gap
+      const summaryX = (canvas.width - scaledSummaryWidth) / 2;
+      const summaryY = padding + scaledDestHeight + gap;
+      ctx.drawImage(summaryImg, summaryX, summaryY, scaledSummaryWidth, scaledSummaryHeight);
       
       // Download combined image
       const link = document.createElement('a');
