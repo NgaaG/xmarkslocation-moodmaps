@@ -16,17 +16,17 @@ const FilterBar = ({ selectedCategory, onCategoryChange, helpButton }: FilterBar
   };
 
   return (
-    <div className="bg-background/90 dark:bg-background/90 backdrop-blur-md border-b border-border h-16 flex items-center justify-between px-4 gap-3 overflow-x-auto">
-      <div className="flex items-center gap-3 flex-1 overflow-x-auto">
-        <span className="text-sm font-medium text-muted-foreground shrink-0">
+    <div className="bg-background/90 dark:bg-background/90 backdrop-blur-md border-b border-border min-h-[64px] sm:h-16 flex items-center justify-between px-3 sm:px-4 gap-2 sm:gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 flex-1 overflow-x-auto scrollbar-hide">
+        <span className="text-xs sm:text-sm font-medium text-muted-foreground shrink-0">
           Filter:
         </span>
-        <div className="flex gap-2">
+        <div className="flex gap-2 pb-2 sm:pb-0">
           <Button
             variant={selectedCategory === null ? 'default' : 'outline'}
             size="sm"
             onClick={() => handleCategoryChange(null)}
-            className="rounded-full min-h-[44px]"
+            className="rounded-full min-h-[40px] sm:min-h-[44px] text-xs sm:text-sm px-3 sm:px-4 whitespace-nowrap"
           >
             All Spots
           </Button>
@@ -36,7 +36,7 @@ const FilterBar = ({ selectedCategory, onCategoryChange, helpButton }: FilterBar
               variant={selectedCategory === category ? 'default' : 'outline'}
               size="sm"
               onClick={() => handleCategoryChange(category)}
-              className="rounded-full min-h-[44px] capitalize"
+              className="rounded-full min-h-[40px] sm:min-h-[44px] capitalize text-xs sm:text-sm px-3 sm:px-4 whitespace-nowrap"
             >
               {getCategoryLabel(category)}
             </Button>

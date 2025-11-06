@@ -55,9 +55,9 @@ const SpotDetailsModal = ({ spot, onClose }: SpotDetailsModalProps) => {
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 w-[95vw] sm:w-full">
         {/* Header Image */}
-        <div className="relative h-48 w-full">
+        <div className="relative h-40 sm:h-48 w-full">
           <img 
             src={spot.image} 
             alt={spot.name}
@@ -91,17 +91,17 @@ const SpotDetailsModal = ({ spot, onClose }: SpotDetailsModalProps) => {
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           <DialogHeader>
             <div className="flex items-start justify-between gap-4">
-              <DialogTitle className="text-2xl font-semibold">
+              <DialogTitle className="text-xl sm:text-2xl font-semibold">
                 {spot.name}
               </DialogTitle>
-              <Badge className="capitalize shrink-0">
+              <Badge className="capitalize shrink-0 text-xs sm:text-sm">
                 {getCategoryLabel(spot.category)}
               </Badge>
             </div>
-            <p className="text-muted-foreground text-base mt-2">
+            <p className="text-muted-foreground text-sm sm:text-base mt-2">
               {spot.description}
             </p>
           </DialogHeader>
@@ -110,10 +110,10 @@ const SpotDetailsModal = ({ spot, onClose }: SpotDetailsModalProps) => {
           <Button 
             onClick={handleNavigate}
             disabled={!playlistOpened}
-            className="w-full gap-2 transition-opacity duration-250 ease-in-out"
+            className="w-full gap-2 transition-opacity duration-250 ease-in-out text-sm sm:text-base"
             size="lg"
           >
-            <Navigation className="w-5 h-5" />
+            <Navigation className="w-4 h-4 sm:w-5 sm:h-5" />
             Navigate to Location
           </Button>
 

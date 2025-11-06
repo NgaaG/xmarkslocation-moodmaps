@@ -85,16 +85,16 @@ const TutorialGuide = ({ isOpen, onClose }: TutorialGuideProps) => {
   const progressPercentage = (completedCount / tutorialSteps.length) * 100;
 
   const tutorialElement = (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 animate-fade-in">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 animate-fade-in">
       {/* Backdrop - no pointer events to prevent accidental close */}
       <div 
         className="absolute inset-0 bg-background/80 backdrop-blur-sm pointer-events-none" 
       />
       
       {/* Tutorial list dialog */}
-      <div className="relative max-w-2xl w-full max-h-[80vh] flex flex-col bg-card/95 backdrop-blur-md rounded-2xl shadow-2xl border border-border animate-scale-in pointer-events-auto">
+      <div className="relative max-w-2xl w-full max-h-[90vh] sm:max-h-[80vh] flex flex-col bg-card/95 backdrop-blur-md rounded-xl sm:rounded-2xl shadow-2xl border border-border animate-scale-in pointer-events-auto">
         {/* Progress Bar */}
-        <div className="px-6 pt-4 pb-2 flex-shrink-0">
+        <div className="px-4 sm:px-6 pt-3 sm:pt-4 pb-2 flex-shrink-0">
           <div className="space-y-1">
             <div className="flex justify-between items-center text-xs text-muted-foreground">
               <span>Progress</span>
@@ -105,8 +105,8 @@ const TutorialGuide = ({ isOpen, onClose }: TutorialGuideProps) => {
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
-          <h2 className="text-2xl font-semibold text-foreground">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-border flex-shrink-0">
+          <h2 className="text-lg sm:text-2xl font-semibold text-foreground">
             How to Use This App
           </h2>
           <Button
@@ -122,32 +122,32 @@ const TutorialGuide = ({ isOpen, onClose }: TutorialGuideProps) => {
 
         {/* Content */}
         <ScrollArea className="flex-1 overflow-auto">
-          <div className="p-6 space-y-4">
+          <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
             {tutorialSteps.map(({ step, content }, index) => {
               const isCompleted = completedSteps.includes(step);
               return (
                 <div
                   key={index}
-                  className="flex gap-4 p-4 rounded-lg bg-accent/50 hover:bg-accent/70 transition-colors border-2 border-accent/30"
+                  className="flex gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg bg-accent/50 hover:bg-accent/70 transition-colors border-2 border-accent/30"
                 >
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold text-sm shadow-lg">
+                  <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold text-xs sm:text-sm shadow-lg">
                     {index + 1}
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-lg font-semibold text-foreground">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <h3 className="text-base sm:text-lg font-semibold text-foreground">
                         {content.title}
                       </h3>
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs whitespace-nowrap">
                         {content.tab}
                       </Badge>
                       {isCompleted && (
-                        <Badge className="text-xs bg-green-600 text-white">
+                        <Badge className="text-xs bg-green-600 text-white whitespace-nowrap">
                           ✓ Done
                         </Badge>
                       )}
                     </div>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
+                    <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">
                       {content.description}
                     </p>
                   </div>
@@ -158,8 +158,8 @@ const TutorialGuide = ({ isOpen, onClose }: TutorialGuideProps) => {
         </ScrollArea>
 
         {/* Footer */}
-        <div className="p-6 border-t border-border flex-shrink-0">
-          <Button onClick={onClose} className="w-full">
+        <div className="p-4 sm:p-6 border-t border-border flex-shrink-0">
+          <Button onClick={onClose} className="w-full text-sm sm:text-base">
             Got it, let's start!
           </Button>
         </div>

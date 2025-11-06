@@ -51,12 +51,12 @@ const GpsAppSelector = ({ isOpen, onClose, locationName, latitude, longitude }: 
 
   const content = (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md w-[95vw] sm:w-full">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-xl font-semibold flex items-center gap-2">
-              <Navigation className="w-5 h-5 text-primary" />
-              Choose Navigation App
+            <DialogTitle className="text-lg sm:text-xl font-semibold flex items-center gap-2">
+              <Navigation className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+              <span className="truncate">Choose Navigation App</span>
             </DialogTitle>
             <Button
               variant="ghost"
@@ -67,24 +67,24 @@ const GpsAppSelector = ({ isOpen, onClose, locationName, latitude, longitude }: 
               <X className="h-4 w-4" />
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground mt-2">
-            Navigate to <span className="font-medium text-foreground">{locationName}</span>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-2">
+            Navigate to <span className="font-medium text-foreground truncate inline-block max-w-[200px] align-bottom">{locationName}</span>
           </p>
         </DialogHeader>
 
-        <div className="space-y-3 mt-4">
+        <div className="space-y-2 sm:space-y-3 mt-4">
           {isIOS && (
             <Button
               onClick={handleAppleMaps}
               variant="outline"
-              className="w-full justify-start gap-3 h-auto py-4 hover:bg-accent"
+              className="w-full justify-start gap-2 sm:gap-3 h-auto py-3 sm:py-4 hover:bg-accent"
             >
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-lg sm:text-xl">
                 🗺️
               </div>
-              <div className="text-left">
-                <div className="font-medium">Apple Maps</div>
-                <div className="text-xs text-muted-foreground">Built-in iOS navigation</div>
+              <div className="text-left min-w-0">
+                <div className="font-medium text-sm sm:text-base">Apple Maps</div>
+                <div className="text-xs text-muted-foreground hidden sm:block">Built-in iOS navigation</div>
               </div>
             </Button>
           )}
@@ -92,28 +92,28 @@ const GpsAppSelector = ({ isOpen, onClose, locationName, latitude, longitude }: 
           <Button
             onClick={handleGoogleMaps}
             variant="outline"
-            className="w-full justify-start gap-3 h-auto py-4 hover:bg-accent"
+            className="w-full justify-start gap-2 sm:gap-3 h-auto py-3 sm:py-4 hover:bg-accent"
           >
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-lg sm:text-xl">
               🌍
             </div>
-            <div className="text-left">
-              <div className="font-medium">Google Maps</div>
-              <div className="text-xs text-muted-foreground">Walking, transit & driving directions</div>
+            <div className="text-left min-w-0">
+              <div className="font-medium text-sm sm:text-base">Google Maps</div>
+              <div className="text-xs text-muted-foreground hidden sm:block">Walking, transit & driving directions</div>
             </div>
           </Button>
 
           <Button
             onClick={handleWaze}
             variant="outline"
-            className="w-full justify-start gap-3 h-auto py-4 hover:bg-accent"
+            className="w-full justify-start gap-2 sm:gap-3 h-auto py-3 sm:py-4 hover:bg-accent"
           >
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-lg sm:text-xl">
               🚗
             </div>
-            <div className="text-left">
-              <div className="font-medium">Waze</div>
-              <div className="text-xs text-muted-foreground">Real-time traffic & alerts</div>
+            <div className="text-left min-w-0">
+              <div className="font-medium text-sm sm:text-base">Waze</div>
+              <div className="text-xs text-muted-foreground hidden sm:block">Real-time traffic & alerts</div>
             </div>
           </Button>
 
@@ -121,14 +121,14 @@ const GpsAppSelector = ({ isOpen, onClose, locationName, latitude, longitude }: 
             <Button
               onClick={handleWebMaps}
               variant="outline"
-              className="w-full justify-start gap-3 h-auto py-4 hover:bg-accent"
+              className="w-full justify-start gap-2 sm:gap-3 h-auto py-3 sm:py-4 hover:bg-accent"
             >
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-lg sm:text-xl">
                 💻
               </div>
-              <div className="text-left">
-                <div className="font-medium">Open in Browser</div>
-                <div className="text-xs text-muted-foreground">Web-based navigation</div>
+              <div className="text-left min-w-0">
+                <div className="font-medium text-sm sm:text-base">Open in Browser</div>
+                <div className="text-xs text-muted-foreground hidden sm:block">Web-based navigation</div>
               </div>
             </Button>
           )}
