@@ -59,6 +59,8 @@ const SpotDetailsTutorial = ({ isOpen, onClose }: SpotDetailsTutorialProps) => {
   const tutorialContent = (
     <div 
       className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 animate-fade-in"
+      role="dialog"
+      aria-modal="true"
       onKeyDown={(e) => {
         // Prevent ESC from bubbling to parent dialogs
         if (e.key === 'Escape') {
@@ -66,14 +68,18 @@ const SpotDetailsTutorial = ({ isOpen, onClose }: SpotDetailsTutorialProps) => {
           onClose();
         }
       }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
     >
       {/* Backdrop - cannot close by clicking */}
       <div 
-        className="absolute inset-0 bg-background/80 backdrop-blur-sm" 
+        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       />
       
       {/* Tutorial dialog */}
-      <div className="relative max-w-2xl w-full max-h-[90vh] sm:max-h-[85vh] flex flex-col bg-card/95 backdrop-blur-md rounded-xl sm:rounded-2xl shadow-2xl border border-border animate-scale-in pointer-events-auto">
+      <div className="relative max-w-2xl w-full max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden min-h-0 bg-card/95 backdrop-blur-md rounded-xl sm:rounded-2xl shadow-2xl border border-border animate-scale-in pointer-events-auto">
         {/* Progress Bar */}
         <div className="px-6 pt-4 pb-2 flex-shrink-0">
           <div className="space-y-1">
@@ -94,7 +100,8 @@ const SpotDetailsTutorial = ({ isOpen, onClose }: SpotDetailsTutorialProps) => {
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={onClose}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
             aria-label="Close tutorial"
           >
             <X className="h-4 w-4" />
@@ -102,7 +109,7 @@ const SpotDetailsTutorial = ({ isOpen, onClose }: SpotDetailsTutorialProps) => {
         </div>
 
         {/* Content - Scrollable */}
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="min-h-0 p-4 sm:p-6 space-y-3 sm:space-y-4 pr-2">
             {tutorialSteps.map((step, index) => {
               const isCompleted = completedSteps.includes(step.step);
@@ -140,7 +147,7 @@ const SpotDetailsTutorial = ({ isOpen, onClose }: SpotDetailsTutorialProps) => {
 
         {/* Footer */}
         <div className="p-4 sm:p-6 border-t border-border flex-shrink-0">
-          <Button onClick={onClose} className="w-full text-sm sm:text-base">
+          <Button onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onClose(); }} className="w-full text-sm sm:text-base">
             Got it!
           </Button>
         </div>
