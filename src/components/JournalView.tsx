@@ -104,7 +104,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
   const handleDownloadImage = async (card: JournalCard) => {
     if (!card.summaryImage) return;
     
-    // If there's a destination photo, create a minimalistic collage
+    // If there's a destination photo, create a vertical collage
     if (card.destinationPhoto) {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -125,35 +125,41 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         })
       ]);
       
-      // Minimalistic collage layout with padding - preserve original quality
-      const padding = 40;
-      const gap = 30;
+      // Calculate optimal dimensions - fit both images at full width
+      const maxWidth = 1200; // Max width for good quality
+      const padding = 60;
+      const gap = 40;
       
-      // Use original image dimensions for maximum quality
-      const destWidth = destImg.width;
-      const destHeight = destImg.height;
-      const summaryWidth = summaryImg.width;
-      const summaryHeight = summaryImg.height;
+      // Scale destination image to fit max width
+      const destScale = Math.min(1, maxWidth / destImg.width);
+      const destWidth = destImg.width * destScale;
+      const destHeight = destImg.height * destScale;
       
-      // Set canvas size with padding - no scaling for max quality
-      canvas.width = Math.max(destWidth, summaryWidth) + padding * 2;
+      // Scale summary image to match destination width
+      const summaryScale = destWidth / summaryImg.width;
+      const summaryWidth = summaryImg.width * summaryScale;
+      const summaryHeight = summaryImg.height * summaryScale;
+      
+      // Set canvas size - both images at full width
+      canvas.width = destWidth + padding * 2;
       canvas.height = destHeight + summaryHeight + gap + padding * 2;
       
-      // Enable high-quality image rendering
+      // Enable high-quality rendering
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
       
-      // Clean white background
+      // White background
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Center and draw destination photo on top at original size
-      const destX = (canvas.width - destWidth) / 2;
-      ctx.drawImage(destImg, destX, padding, destWidth, destHeight);
+      // Draw destination photo on top (centered horizontally)
+      const destX = padding;
+      const destY = padding;
+      ctx.drawImage(destImg, destX, destY, destWidth, destHeight);
       
-      // Center and draw summary below with gap at original size
-      const summaryX = (canvas.width - summaryWidth) / 2;
-      const summaryY = padding + destHeight + gap;
+      // Draw summary below (centered horizontally, same width)
+      const summaryX = padding;
+      const summaryY = destY + destHeight + gap;
       ctx.drawImage(summaryImg, summaryX, summaryY, summaryWidth, summaryHeight);
       
       // Download combined image with maximum quality
