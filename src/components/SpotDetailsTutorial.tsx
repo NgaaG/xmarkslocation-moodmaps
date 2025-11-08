@@ -109,7 +109,7 @@ const SpotDetailsTutorial = ({ isOpen, onClose }: SpotDetailsTutorialProps) => {
         </div>
 
         {/* Content - Scrollable */}
-        <ScrollArea className="flex-1 min-h-0">
+        <ScrollArea className="flex-1 min-h-0 overflow-auto">
           <div className="min-h-0 p-4 sm:p-6 space-y-3 sm:space-y-4 pr-2">
             {tutorialSteps.map((step, index) => {
               const isCompleted = completedSteps.includes(step.step);
