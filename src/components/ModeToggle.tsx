@@ -7,12 +7,18 @@ interface ModeToggleProps {
 }
 
 const ModeToggle = ({ mode, onModeChange }: ModeToggleProps) => {
+  const handleModeChange = (newMode: 'campus' | 'nationwide' | 'global' | 'journal') => {
+    onModeChange(newMode);
+    // Dispatch tutorial event when mode changes
+    window.dispatchEvent(new CustomEvent('tutorial-mode-toggle'));
+  };
+
   return (
     <div className="fixed bottom-20 sm:bottom-24 left-2 sm:left-4 z-30 bg-background border border-border rounded-full shadow-lg p-0.5 sm:p-1 flex gap-0.5 sm:gap-1">
       <Button
         variant={mode === 'campus' ? 'default' : 'ghost'}
         size="sm"
-        onClick={() => onModeChange('campus')}
+        onClick={() => handleModeChange('campus')}
         className="rounded-full min-h-[40px] sm:min-h-[44px] px-2 sm:px-3"
         aria-label="University campus map view"
       >
@@ -22,7 +28,7 @@ const ModeToggle = ({ mode, onModeChange }: ModeToggleProps) => {
       <Button
         variant={mode === 'nationwide' ? 'default' : 'ghost'}
         size="sm"
-        onClick={() => onModeChange('nationwide')}
+        onClick={() => handleModeChange('nationwide')}
         className="rounded-full min-h-[40px] sm:min-h-[44px] px-2 sm:px-3"
         aria-label="Nationwide map view"
       >
@@ -32,7 +38,7 @@ const ModeToggle = ({ mode, onModeChange }: ModeToggleProps) => {
       <Button
         variant={mode === 'global' ? 'default' : 'ghost'}
         size="sm"
-        onClick={() => onModeChange('global')}
+        onClick={() => handleModeChange('global')}
         className="rounded-full min-h-[40px] sm:min-h-[44px] px-2 sm:px-3"
         aria-label="Global map view"
       >
@@ -42,7 +48,7 @@ const ModeToggle = ({ mode, onModeChange }: ModeToggleProps) => {
       <Button
         variant={mode === 'journal' ? 'default' : 'ghost'}
         size="sm"
-        onClick={() => onModeChange('journal')}
+        onClick={() => handleModeChange('journal')}
         className="rounded-full min-h-[40px] sm:min-h-[44px] px-2 sm:px-3"
         aria-label="Journal view"
       >

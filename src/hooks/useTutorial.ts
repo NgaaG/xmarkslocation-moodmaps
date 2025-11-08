@@ -61,19 +61,52 @@ export const useTutorial = () => {
   }, [currentStep, completedSteps, tutorialActive]);
 
   const completeStep = useCallback((step: TutorialStep) => {
-    console.log('Completing tutorial step:', step, 'Current step:', currentStep);
+    console.log('Completing tutorial step:', step);
     
-    // Only complete if this is the current step
-    if (step !== currentStep) {
-      console.log('Ignoring completion - not current step');
-      return;
-    }
-
+    // Allow completing steps in any order (users can perform actions freely)
     setCompletedSteps(prev => {
       if (prev.includes(step)) return prev;
-      return [...prev, step];
+      const updated = [...prev, step];
+      
+      // Save progress immediately to localStorage
+      const progress: TutorialProgress = {
+        completedSteps: updated,
+        currentStep
+      };
+      localStorage.setItem(TUTORIAL_STORAGE_KEY, JSON.stringify(progress));
+      
+      return updated;
     });
   }, [currentStep]);
+
+  // Listen to tutorial events and automatically complete steps
+  useEffect(() => {
+    const eventHandlers: Record<string, TutorialStep> = {
+      'tutorial-mode-toggle': 'mode-toggle',
+      'tutorial-category-change': 'location-filter',
+      'tutorial-pin-click': 'location-pins',
+      'tutorial-playlist-preview': 'playlist-tab',
+      'tutorial-spotify-open': 'spotify-open',
+      'tutorial-mood-select': 'mood-visualizer',
+      'tutorial-journey-save': 'mood-summary',
+      'tutorial-journal-edit': 'journal-tab'
+    };
+
+    const handlers = Object.entries(eventHandlers).map(([eventName, step]) => {
+      const handler = () => {
+        console.log('Tutorial event detected:', eventName, '-> completing step:', step);
+        completeStep(step);
+      };
+      window.addEventListener(eventName, handler);
+      return { eventName, handler };
+    });
+
+    return () => {
+      handlers.forEach(({ eventName, handler }) => {
+        window.removeEventListener(eventName, handler);
+      });
+    };
+  }, [completeStep]);
 
   const dismissCurrentStep = useCallback(() => {
     if (currentStep) {
