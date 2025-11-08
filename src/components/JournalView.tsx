@@ -130,37 +130,38 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       const padding = 60;
       const gap = 40;
       
-      // Scale destination image to fit max width
-      const destScale = Math.min(1, maxWidth / destImg.width);
-      const destWidth = destImg.width * destScale;
-      const destHeight = destImg.height * destScale;
-      
-      // Scale summary image to match destination width
-      const summaryScale = destWidth / summaryImg.width;
+      // Scale summary image to fit max width
+      const summaryScale = Math.min(1, maxWidth / summaryImg.width);
       const summaryWidth = summaryImg.width * summaryScale;
       const summaryHeight = summaryImg.height * summaryScale;
       
-      // Set canvas size - both images at full width
-      canvas.width = destWidth + padding * 2;
-      canvas.height = destHeight + summaryHeight + gap + padding * 2;
+      // Scale destination image to match summary width
+      const destScale = summaryWidth / destImg.width;
+      const destWidth = destImg.width * destScale;
+      const destHeight = destImg.height * destScale;
       
-      // Enable high-quality rendering
+      // Set canvas size - both images at full width
+      canvas.width = summaryWidth + padding * 2;
+      canvas.height = summaryHeight + destHeight + gap + padding * 2;
+      
+      // Enable high-quality rendering with full opacity
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
+      ctx.globalAlpha = 1.0; // Ensure 100% opacity
       
       // White background
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Draw destination photo on top (centered horizontally)
-      const destX = padding;
-      const destY = padding;
-      ctx.drawImage(destImg, destX, destY, destWidth, destHeight);
-      
-      // Draw summary below (centered horizontally, same width)
+      // Draw summary on top (centered horizontally)
       const summaryX = padding;
-      const summaryY = destY + destHeight + gap;
+      const summaryY = padding;
       ctx.drawImage(summaryImg, summaryX, summaryY, summaryWidth, summaryHeight);
+      
+      // Draw destination photo below (centered horizontally, same width)
+      const destX = padding;
+      const destY = summaryY + summaryHeight + gap;
+      ctx.drawImage(destImg, destX, destY, destWidth, destHeight);
       
       // Download combined image with maximum quality
       const link = document.createElement('a');
