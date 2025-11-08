@@ -57,7 +57,16 @@ const SpotDetailsTutorial = ({ isOpen, onClose }: SpotDetailsTutorialProps) => {
   const progressPercentage = (completedCount / tutorialSteps.length) * 100;
 
   const tutorialContent = (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 animate-fade-in">
+    <div 
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 animate-fade-in"
+      onKeyDown={(e) => {
+        // Prevent ESC from bubbling to parent dialogs
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          onClose();
+        }
+      }}
+    >
       {/* Backdrop - cannot close by clicking */}
       <div 
         className="absolute inset-0 bg-background/80 backdrop-blur-sm" 

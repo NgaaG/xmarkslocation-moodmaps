@@ -54,7 +54,12 @@ const SpotDetailsModal = ({ spot, onClose }: SpotDetailsModalProps) => {
   };
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
+    <Dialog open={true} onOpenChange={(open) => {
+      // Only close if tutorial is not open
+      if (!open && !isTutorialOpen) {
+        onClose();
+      }
+    }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 w-[95vw] sm:w-full">
         {/* Header Image */}
         <div className="relative h-40 sm:h-48 w-full">
