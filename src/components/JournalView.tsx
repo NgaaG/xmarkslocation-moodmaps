@@ -345,7 +345,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                     size="sm" 
                     className="flex-1 min-h-[44px]"
                     onClick={() => {
-                      handlePhotoUpload(card.id, true);
+                      handlePhotoUpload(card.id, false);
                       window.dispatchEvent(new CustomEvent('tutorial-journal-edit'));
                     }}
                   >
