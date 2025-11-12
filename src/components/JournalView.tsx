@@ -163,6 +163,34 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       const destY = summaryY + summaryHeight + gap;
       ctx.drawImage(destImg, destX, destY, destWidth, destHeight);
       
+      // Add metadata text overlay at the bottom
+      const textPadding = 20;
+      const textHeight = 100;
+      const textY = canvas.height - textHeight - padding;
+      
+      // Semi-transparent background for text
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+      ctx.fillRect(padding, textY, summaryWidth, textHeight);
+      
+      // Configure text rendering
+      ctx.fillStyle = '#FFFFFF';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      
+      // Location title (larger font)
+      ctx.font = 'bold 28px Inter, system-ui, sans-serif';
+      ctx.fillText(card.locationTitle || 'Unknown Location', padding + textPadding, textY + textPadding);
+      
+      // Playlist category (medium font)
+      ctx.font = '20px Inter, system-ui, sans-serif';
+      ctx.fillStyle = '#DDDDDD';
+      ctx.fillText(card.playlistCategoryName || card.category, padding + textPadding, textY + textPadding + 36);
+      
+      // Spotify playlist name (medium font, italic)
+      ctx.font = 'italic 18px Inter, system-ui, sans-serif';
+      ctx.fillStyle = '#CCCCCC';
+      ctx.fillText((card.spotifyPlaylistName || 'No playlist') + ' - Spotify', padding + textPadding, textY + textPadding + 64);
+      
       // Download combined image with maximum quality
       const link = document.createElement('a');
       link.href = canvas.toDataURL('image/png', 1.0);
