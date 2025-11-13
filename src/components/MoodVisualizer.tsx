@@ -578,170 +578,174 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
           setDestinationPhoto(imageData);
           setShowPhotoCapture(false);
           // Now proceed to save
-        const handleSaveToJournal = async () => {
-  if (moodEntries.length !== 3) return;
-
-  const playlist = mockPlaylists.find((p) => p.id === selectedPlaylist);
-
-  // Capture screenshot of summary with light theme and no overlays
-  let screenshotData: string | undefined;
-  if (summaryRef.current) {
-    try {
-      // Hide close button and other overlays
-      const closeButton = summaryRef.current.querySelector("button");
-      const originalDisplay = closeButton ? closeButton.style.display : "";
-      if (closeButton) closeButton.style.display = "none";
-
-      // Apply light theme temporarily
-      const originalBg = summaryRef.current.style.backgroundColor;
-      const originalColor = summaryRef.current.style.color;
-      summaryRef.current.style.backgroundColor = "#fafafa";
-      summaryRef.current.style.color = "#111";
-
-      const canvas = await html2canvas(summaryRef.current, {
-        backgroundColor: "#fafafa",
-        scale: 2,
-        logging: false,
-      });
-      screenshotData = canvas.toDataURL("image/png");
-
-      // Revert to original
-      summaryRef.current.style.backgroundColor = originalBg;
-      summaryRef.current.style.color = originalColor;
-      if (closeButton) closeButton.style.display = originalDisplay;
-    } catch (error) {
-      console.error("Failed to capture screenshot:", error);
-    }
-  }
-
-  // Combine destination photo with summary if both exist
-  let finalImage = screenshotData;
-  if (destinationPhoto && screenshotData) {
-    try {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        // Load both images
-        const destImg = new Image();
-        const summaryImg = new Image();
-
-        await new Promise<void>((resolve) => {
-          let loadedCount = 0;
-          const checkLoaded = () => {
-            loadedCount++;
-            if (loadedCount === 2) resolve();
-          };
-
-          destImg.onload = checkLoaded;
-          summaryImg.onload = checkLoaded;
-          destImg.src = destinationPhoto;
-          summaryImg.src = screenshotData!;
-        });
-
-        // Set canvas size - place images side by side or stacked
-        const padding = 20;
-        canvas.width = Math.max(destImg.width, summaryImg.width);
-        canvas.height = destImg.height + summaryImg.height + padding * 3;
-
-        // White background
-        ctx.fillStyle = "#fafafa";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Draw destination photo on top
-        const destX = (canvas.width - destImg.width) / 2;
-        ctx.drawImage(destImg, destX, padding, destImg.width, destImg.height);
-
-        // Draw summary below
-        const summaryY = destImg.height + padding * 2;
-        const summaryX = (canvas.width - summaryImg.width) / 2;
-        ctx.drawImage(summaryImg, summaryX, summaryY, summaryImg.width, summaryImg.height);
-
-        finalImage = canvas.toDataURL("image/png");
+          handleSaveToJournal();
+        };
+        reader.readAsDataURL(file);
       }
-    } catch (error) {
-      console.error("Failed to combine images:", error);
-      // Fallback to just the summary
-      finalImage = screenshotData;
+    };
+    input.click();
+  };
+
+  const handleSaveToJournal = async () => {
+    if (moodEntries.length !== 3) return;
+
+    const playlist = mockPlaylists.find((p) => p.id === selectedPlaylist);
+
+    // Capture screenshot of summary with light theme and no overlays
+    let screenshotData: string | undefined;
+    if (summaryRef.current) {
+      try {
+        // Hide close button and other overlays
+        const closeButton = summaryRef.current.querySelector("button");
+        const originalDisplay = closeButton ? closeButton.style.display : "";
+        if (closeButton) closeButton.style.display = "none";
+
+        // Apply light theme temporarily
+        const originalBg = summaryRef.current.style.backgroundColor;
+        const originalColor = summaryRef.current.style.color;
+        summaryRef.current.style.backgroundColor = "#fafafa";
+        summaryRef.current.style.color = "#111";
+
+        const canvas = await html2canvas(summaryRef.current, {
+          backgroundColor: "#fafafa",
+          scale: 2,
+          logging: false,
+        });
+        screenshotData = canvas.toDataURL("image/png");
+
+        // Revert to original
+        summaryRef.current.style.backgroundColor = originalBg;
+        summaryRef.current.style.color = originalColor;
+        if (closeButton) closeButton.style.display = originalDisplay;
+      } catch (error) {
+        console.error("Failed to capture screenshot:", error);
+      }
     }
-  } else if (destinationPhoto) {
-    // Only destination photo, no summary
-    finalImage = destinationPhoto;
-  }
 
-  // Build summary text
-  const summary = {
-    before: moodEntries.find((e) => e.stage === "before"),
-    during: moodEntries.find((e) => e.stage === "during"),
-    after: moodEntries.find((e) => e.stage === "after"),
+    // Combine destination photo with summary if both exist
+    let finalImage = screenshotData;
+    if (destinationPhoto && screenshotData) {
+      try {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          // Load both images
+          const destImg = new Image();
+          const summaryImg = new Image();
+
+          await new Promise<void>((resolve) => {
+            let loadedCount = 0;
+            const checkLoaded = () => {
+              loadedCount++;
+              if (loadedCount === 2) resolve();
+            };
+
+            destImg.onload = checkLoaded;
+            summaryImg.onload = checkLoaded;
+            destImg.src = destinationPhoto;
+            summaryImg.src = screenshotData!;
+          });
+
+          // Set canvas size - place images side by side or stacked
+          const padding = 20;
+          canvas.width = Math.max(destImg.width, summaryImg.width);
+          canvas.height = destImg.height + summaryImg.height + padding * 3;
+
+          // White background
+          ctx.fillStyle = "#fafafa";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          // Draw destination photo on top
+          const destX = (canvas.width - destImg.width) / 2;
+          ctx.drawImage(destImg, destX, padding, destImg.width, destImg.height);
+
+          // Draw summary below
+          const summaryY = destImg.height + padding * 2;
+          const summaryX = (canvas.width - summaryImg.width) / 2;
+          ctx.drawImage(summaryImg, summaryX, summaryY, summaryImg.width, summaryImg.height);
+
+          finalImage = canvas.toDataURL("image/png");
+        }
+      } catch (error) {
+        console.error("Failed to combine images:", error);
+        // Fallback to just the summary
+        finalImage = screenshotData;
+      }
+    } else if (destinationPhoto) {
+      // Only destination photo, no summary
+      finalImage = destinationPhoto;
+    }
+
+    // Build summary text
+    const summary = {
+      before: moodEntries.find((e) => e.stage === "before"),
+      during: moodEntries.find((e) => e.stage === "during"),
+      after: moodEntries.find((e) => e.stage === "after"),
+    };
+
+    // Get stored data and selected playlist info
+    const playlistCategoryName = playlist?.name || ""; // The dropdown selection (e.g., "Coffeeshop Vibes")
+    const spotifyPlaylistName = currentSpotifyPlaylist || ""; // The actual Spotify playlist name
+    const locationTitle = currentLocationTitle || "Unknown Location"; // Use location or "Unknown Location"
+
+    // Create journal entry
+    const journalEntry = {
+      id: `journey-${Date.now()}`,
+      locationTitle,
+      playlistName: spotifyPlaylistName,
+      playlistCategoryName,
+      spotifyPlaylistName,
+      category,
+      moodEntries: moodEntries.map((e) => ({
+        stage: e.stage,
+        emotion: e.emotion,
+        timestamp: e.timestamp.toISOString(),
+      })),
+      timestamp: new Date().toISOString(),
+      summaryData: summary,
+      summaryImage: finalImage,
+      destinationPhoto: destinationPhoto,
+    };
+
+    // Save to localStorage
+    const existingEntries = JSON.parse(localStorage.getItem("moodJournalEntries") || "[]");
+    localStorage.setItem("moodJournalEntries", JSON.stringify([...existingEntries, journalEntry]));
+
+    // Trigger storage event for journal view
+    window.dispatchEvent(new Event("storage"));
+
+    // Sync to Google Sheets (silent fail)
+    fetch(
+      "https://script.google.com/macros/s/AKfycbwqmt3SyidND_gTaBINfErwGCsUvN6V6rr5oVFrNTRzJx-5B_PnCgj0gbI0zRPvDH79Eg/exec",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(journalEntry),
+      },
+    ).catch((err) => console.log("Sync failed:", err));
+
+    toast({
+      title: "Journey Saved! 🎵",
+      description: `${playlist?.name} mood journey saved to your journal`,
+    });
+
+    setShowSubmitPrompt(false);
+    setShowSaveConfirmation(true);
+
+    // Dispatch tutorial event when journey is saved
+    window.dispatchEvent(new CustomEvent("tutorial-journey-save"));
+
+    setTimeout(() => {
+      setShowSaveConfirmation(false);
+      // Reset for new journey
+      setMoodEntries([]);
+      setCurrentStage("before");
+      setSelectedMood(null);
+      moodRef.current = null;
+      setDestinationPhoto(null);
+      setShowPhotoCapture(false);
+    }, 2000);
   };
-
-  // Get stored data and selected playlist info
-  const playlistCategoryName = playlist?.name || "";
-  const spotifyPlaylistName = currentSpotifyPlaylist || "";
-  const locationTitle = currentLocationTitle || "Unknown Location";
-
-  // Create journal entry
-  const journalEntry = {
-    id: `journey-${Date.now()}`,
-    locationTitle,
-    playlistName: spotifyPlaylistName,
-    playlistCategoryName,
-    spotifyPlaylistName,
-    category,
-    moodEntries: moodEntries.map((e) => ({
-      stage: e.stage,
-      emotion: e.emotion,
-      timestamp: e.timestamp.toISOString(),
-    })),
-    timestamp: new Date().toISOString(),
-    summaryData: summary,
-    summaryImage: finalImage,
-    destinationPhoto: destinationPhoto,
-  };
-
-  // Save to localStorage
-  const existingEntries = JSON.parse(localStorage.getItem("moodJournalEntries") || "[]");
-  localStorage.setItem("moodJournalEntries", JSON.stringify([...existingEntries, journalEntry]));
-
-  // Trigger storage event for journal view
-  window.dispatchEvent(new Event("storage"));
-
-  // ✅ CHANGE: Relay via Vercel
-  fetch("https://mood-journeys-relay.vercel.app/api/save-journey", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      id: journalEntry.id,
-      locationTitle: journalEntry.locationTitle,
-      latitude: 0,
-      longitude: 0,
-      playlist: journalEntry.playlistName,
-      moods: moodEntries.map(e => e.emotion).join(", "),
-      timestamp: journalEntry.timestamp,
-    }),
-  }).catch((err) => console.log("ℹ️ Cloud sync skipped:", err.message));
-
-  toast({
-    title: "Journey Saved! 🎵",
-    description: `${playlist?.name} mood journey saved to your journal`,
-  });
-
-  setShowSubmitPrompt(false);
-  setShowSaveConfirmation(true);
-
-  window.dispatchEvent(new CustomEvent("tutorial-journey-save"));
-
-  setTimeout(() => {
-    setShowSaveConfirmation(false);
-    setMoodEntries([]);
-    setCurrentStage("before");
-    setSelectedMood(null);
-    moodRef.current = null;
-    setDestinationPhoto(null);
-    setShowPhotoCapture(false);
-  }, 2000);
-};
-
 
   const handleClose = () => {
     setShowOverlay(false);
