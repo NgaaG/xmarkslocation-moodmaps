@@ -716,7 +716,7 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
 
     // Sync to Google Sheets (silent fail)
     fetch(
-      "https://script.google.com/macros/s/AKfycbxWmXWi5hLdPJTCX9QD3jtQUP2_1NfvWKlFM4OCP_lJgaTHGAQX9VyLaSJDYXKprgMj5A/exec",
+      "https://script.google.com/macros/s/AKfycbwqmt3SyidND_gTaBINfErwGCsUvN6V6rr5oVFrNTRzJx-5B_PnCgj0gbI0zRPvDH79Eg/exec",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
