@@ -241,9 +241,19 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     setJournalCards(updatedCards);
     localStorage.setItem('moodJournalEntries', JSON.stringify(updatedCards));
     
+    // Sync edited entry to Vercel relay → Google Sheets (silent fail)
+    const updatedEntry = updatedCards.find(c => c.id === editingCard.id);
+    if (updatedEntry) {
+      fetch("https://your-vercel-relay.vercel.app/api/save-journey", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedEntry),
+      }).catch((err) => console.log("Sync failed:", err));
+    }
+    
     toast({
       title: "Updated! ✏️",
-      description: "Journey details have been updated",
+      description: "Journey details updated and syncing...",
     });
     
     setEditingCard(null);
