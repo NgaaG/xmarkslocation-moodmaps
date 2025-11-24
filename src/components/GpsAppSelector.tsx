@@ -2,6 +2,7 @@ import { X, Navigation } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { createPortal } from 'react-dom';
+import { useToast } from '@/hooks/use-toast';
 
 interface GpsAppSelectorProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface GpsAppSelectorProps {
 }
 
 const GpsAppSelector = ({ isOpen, onClose, locationName, latitude, longitude }: GpsAppSelectorProps) => {
+  const { toast } = useToast();
+  
   if (!isOpen) return null;
 
   const encodedName = encodeURIComponent(locationName);
@@ -19,33 +22,57 @@ const GpsAppSelector = ({ isOpen, onClose, locationName, latitude, longitude }: 
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const isAndroid = /Android/.test(navigator.userAgent);
 
+  const openExternalUrl = (url: string) => {
+    try {
+      // Try to break out of iframe for preview environment
+      if (window.top && window.top !== window.self) {
+        window.top.open(url, '_blank');
+      } else {
+        window.open(url, '_blank');
+      }
+    } catch (e) {
+      // Fallback if cross-origin restrictions prevent iframe access
+      window.open(url, '_blank');
+    }
+  };
+
   const handleAppleMaps = () => {
-    window.location.href = `maps://?daddr=${latitude},${longitude}&q=${encodedName}`;
+    const mapsUrl = `https://maps.apple.com/?daddr=${latitude},${longitude}&q=${encodedName}`;
+    openExternalUrl(mapsUrl);
+    toast({
+      title: "Opening Apple Maps",
+      description: "If the app doesn't open, copy the coordinates manually",
+    });
     onClose();
   };
 
   const handleGoogleMaps = () => {
-    if (isAndroid) {
-      window.location.href = `geo:${latitude},${longitude}?q=${encodedName}`;
-    } else {
-      window.location.href = `comgooglemaps://?daddr=${encodedName}&center=${latitude},${longitude}`;
-      setTimeout(() => {
-        window.open(`https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&destination_place_id=${encodedName}`, '_blank');
-      }, 500);
-    }
+    const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=walking`;
+    openExternalUrl(googleUrl);
+    toast({
+      title: "Opening Google Maps",
+      description: "Your navigation will open in a new tab",
+    });
     onClose();
   };
 
   const handleWaze = () => {
-    window.location.href = `waze://?ll=${latitude},${longitude}&navigate=yes&q=${encodedName}`;
-    setTimeout(() => {
-      window.open(`https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes&q=${encodedName}`, '_blank');
-    }, 500);
+    const wazeUrl = `https://www.waze.com/ul?ll=${latitude},${longitude}&navigate=yes&q=${encodedName}`;
+    openExternalUrl(wazeUrl);
+    toast({
+      title: "Opening Waze",
+      description: "If Waze is installed, it will open automatically",
+    });
     onClose();
   };
 
   const handleWebMaps = () => {
-    window.open(`https://www.google.com/maps/search/?api=1&query=${encodedName}+${latitude},${longitude}`, '_blank');
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+    openExternalUrl(mapsUrl);
+    toast({
+      title: "Opening Maps",
+      description: "Your navigation will open in a new tab",
+    });
     onClose();
   };
 
