@@ -244,7 +244,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     // Sync edited entry to Vercel relay → Google Sheets (silent fail)
     const updatedEntry = updatedCards.find(c => c.id === editingCard.id);
     if (updatedEntry) {
-      fetch("https://your-vercel-relay.vercel.app/api/save-journey", {
+      fetch("https://mood-journeys-relay.vercel.app/api/save-journey", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedEntry),
@@ -422,7 +422,10 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
       {/* Image Viewer Dialog */}
       <Dialog open={selectedImage !== null} onOpenChange={(open) => !open && setSelectedImage(null)}>
-        <DialogContent className="max-w-4xl p-0">
+        <DialogContent className="max-w-4xl p-0" aria-describedby="image-viewer-description">
+          <DialogHeader className="sr-only">
+            <DialogTitle>View Journey Image</DialogTitle>
+          </DialogHeader>
           <div className="relative">
             {selectedImage && (
               <>
