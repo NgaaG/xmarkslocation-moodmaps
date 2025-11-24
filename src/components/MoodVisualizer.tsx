@@ -716,7 +716,7 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
     window.dispatchEvent(new Event("storage"));
 
     // Sync to Vercel relay → Google Sheets (silent fail)
-    fetch("https://mood-journeys-relay.vercel.app/api/save-journey", {
+    fetch("https://mood-journeys-relay-ngaas-projects-b4dba625.vercel.app/api/save-journey", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(journalEntry),
