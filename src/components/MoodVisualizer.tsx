@@ -715,14 +715,11 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
     window.dispatchEvent(new Event("storage"));
 
     // Sync to Vercel relay → Google Sheets (silent fail)
-    fetch(
-      "https://your-vercel-relay.vercel.app/api/save-journey",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(journalEntry),
-      },
-    ).catch((err) => console.log("Sync failed:", err));
+    fetch("https://mood-journeys-relay.vercel.app//api/save-journey", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(journalEntry),
+    }).catch((err) => console.log("Sync failed:", err));
 
     toast({
       title: "Journey Saved! 🎵",
