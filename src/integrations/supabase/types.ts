@@ -14,7 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      journal_entries: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          mood_entries: Json
+          playlist_name: string | null
+          summary_data: Json | null
+          summary_image: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          mood_entries?: Json
+          playlist_name?: string | null
+          summary_data?: Json | null
+          summary_image?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          mood_entries?: Json
+          playlist_name?: string | null
+          summary_data?: Json | null
+          summary_image?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
