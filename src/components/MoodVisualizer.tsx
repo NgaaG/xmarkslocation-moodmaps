@@ -707,15 +707,16 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
       destinationPhoto: destinationPhoto,
     };
 
-    // Save to localStorage
+    // Save to localStorage with limit to prevent quota errors (keep last 100 entries)
     const existingEntries = JSON.parse(localStorage.getItem("moodJournalEntries") || "[]");
-    localStorage.setItem("moodJournalEntries", JSON.stringify([...existingEntries, journalEntry]));
+    const updatedEntries = [...existingEntries, journalEntry].slice(-100);
+    localStorage.setItem("moodJournalEntries", JSON.stringify(updatedEntries));
 
     // Trigger storage event for journal view
     window.dispatchEvent(new Event("storage"));
 
     // Sync to Vercel relay → Google Sheets (silent fail)
-    fetch("https://mood-journeys-relay.vercel.app//api/save-journey", {
+    fetch("https://mood-journeys-relay.vercel.app/api/save-journey", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(journalEntry),
