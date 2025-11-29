@@ -1,12 +1,12 @@
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Plus, Image, Video, Pencil, Download, Edit2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { useState, useEffect } from 'react';
-import FilterBar from './FilterBar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Plus, Image, Video, Pencil, Download, Edit2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
+import FilterBar from "./FilterBar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface JournalViewProps {
   selectedCategory: string | null;
@@ -42,36 +42,36 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [editingCard, setEditingCard] = useState<JournalCard | null>(null);
   const [editForm, setEditForm] = useState({
-    locationTitle: '',
-    playlistCategoryName: '',
-    spotifyPlaylistName: ''
+    locationTitle: "",
+    playlistCategoryName: "",
+    spotifyPlaylistName: "",
   });
 
   // Load journal cards from localStorage
   useEffect(() => {
     const loadJournalCards = () => {
-      const entries = JSON.parse(localStorage.getItem('moodJournalEntries') || '[]');
+      const entries = JSON.parse(localStorage.getItem("moodJournalEntries") || "[]");
       setJournalCards(entries);
     };
-    
+
     loadJournalCards();
-    
+
     // Listen for new journal entries
     const handleStorageChange = () => {
       loadJournalCards();
     };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   const handlePhotoUpload = (cardId: string, useCamera: boolean = false) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
     // Enable camera on mobile devices
     if (useCamera) {
-      input.setAttribute('capture', 'environment');
+      input.setAttribute("capture", "environment");
     }
     input.onchange = (e: Event) => {
       const file = (e.target as HTMLInputElement).files?.[0];
@@ -79,17 +79,15 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         const reader = new FileReader();
         reader.onload = (event) => {
           const imageData = event.target?.result as string;
-          
+
           // Update the card with the destination photo
-          const updatedCards = journalCards.map(card => 
-            card.id === cardId 
-              ? { ...card, destinationPhoto: imageData }
-              : card
+          const updatedCards = journalCards.map((card) =>
+            card.id === cardId ? { ...card, destinationPhoto: imageData } : card,
           );
-          
+
           setJournalCards(updatedCards);
-          localStorage.setItem('moodJournalEntries', JSON.stringify(updatedCards));
-          
+          localStorage.setItem("moodJournalEntries", JSON.stringify(updatedCards));
+
           toast({
             title: "Destination photo added! 📸",
             description: "Your destination photo has been saved",
@@ -103,17 +101,17 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
   const handleDownloadImage = async (card: JournalCard) => {
     if (!card.summaryImage) return;
-    
+
     // If there's a destination photo, create a vertical collage
     if (card.destinationPhoto) {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      
+
       // Load both images
-      const destImg = document.createElement('img');
-      const summaryImg = document.createElement('img');
-      
+      const destImg = document.createElement("img");
+      const summaryImg = document.createElement("img");
+
       await Promise.all([
         new Promise<void>((resolve) => {
           destImg.onload = () => resolve();
@@ -122,92 +120,96 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         new Promise<void>((resolve) => {
           summaryImg.onload = () => resolve();
           summaryImg.src = card.summaryImage!;
-        })
+        }),
       ]);
-      
+
       // Calculate optimal dimensions - fit both images at full width
       const maxWidth = 1200; // Max width for good quality
       const padding = 60;
       const gap = 40;
-      
+
       // Scale summary image to fit max width
       const summaryScale = Math.min(1, maxWidth / summaryImg.width);
       const summaryWidth = summaryImg.width * summaryScale;
       const summaryHeight = summaryImg.height * summaryScale;
-      
+
       // Scale destination image to match summary width
       const destScale = summaryWidth / destImg.width;
       const destWidth = destImg.width * destScale;
       const destHeight = destImg.height * destScale;
-      
+
       // Set canvas size - both images at full width
       canvas.width = summaryWidth + padding * 2;
       canvas.height = summaryHeight + destHeight + gap + padding * 2;
-      
+
       // Enable high-quality rendering with full opacity
       ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
+      ctx.imageSmoothingQuality = "high";
       ctx.globalAlpha = 1.0; // Ensure 100% opacity
-      
+
       // White background
-      ctx.fillStyle = '#FFFFFF';
+      ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
+
       // Draw summary on top (centered horizontally)
       const summaryX = padding;
       const summaryY = padding;
       ctx.drawImage(summaryImg, summaryX, summaryY, summaryWidth, summaryHeight);
-      
+
       // Draw destination photo below (centered horizontally, same width)
       const destX = padding;
       const destY = summaryY + summaryHeight + gap;
       ctx.drawImage(destImg, destX, destY, destWidth, destHeight);
-      
+
       // Add metadata text overlay at the bottom
       const textPadding = 20;
       const textHeight = 100;
       const textY = canvas.height - textHeight - padding;
-      
+
       // Semi-transparent background for text
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+      ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
       ctx.fillRect(padding, textY, summaryWidth, textHeight);
-      
+
       // Configure text rendering
-      ctx.fillStyle = '#FFFFFF';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      
+      ctx.fillStyle = "#FFFFFF";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+
       // Location title (larger font)
-      ctx.font = 'bold 28px Inter, system-ui, sans-serif';
-      ctx.fillText(card.locationTitle || 'Unknown Location', padding + textPadding, textY + textPadding);
-      
+      ctx.font = "bold 28px Inter, system-ui, sans-serif";
+      ctx.fillText(card.locationTitle || "Unknown Location", padding + textPadding, textY + textPadding);
+
       // Playlist category (medium font)
-      ctx.font = '20px Inter, system-ui, sans-serif';
-      ctx.fillStyle = '#DDDDDD';
+      ctx.font = "20px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "#DDDDDD";
       ctx.fillText(card.playlistCategoryName || card.category, padding + textPadding, textY + textPadding + 36);
-      
+
       // Spotify playlist name (medium font, italic)
-      ctx.font = 'italic 18px Inter, system-ui, sans-serif';
-      ctx.fillStyle = '#CCCCCC';
-      ctx.fillText((card.spotifyPlaylistName || 'No playlist') + ' - Spotify', padding + textPadding, textY + textPadding + 64);
-      
+      ctx.font = "italic 18px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "#CCCCCC";
+      ctx.fillText(
+        (card.spotifyPlaylistName || "No playlist") + " - Spotify",
+        padding + textPadding,
+        textY + textPadding + 64,
+      );
+
       // Download combined image with maximum quality
-      const link = document.createElement('a');
-      link.href = canvas.toDataURL('image/png', 1.0);
-      link.download = `${card.playlistName || 'journey'}-complete.png`;
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png", 1.0);
+      link.download = `${card.playlistName || "journey"}-complete.png`;
       link.click();
-      
+
       toast({
         title: "Downloaded! 💾",
         description: "Complete journey with destination photo saved",
       });
     } else {
       // Download just the summary image
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = card.summaryImage;
-      link.download = `${card.playlistName || 'journey'}.png`;
+      link.download = `${card.playlistName || "journey"}.png`;
       link.click();
-      
+
       toast({
         title: "Downloaded! 💾",
         description: "Journey saved to your device",
@@ -218,59 +220,59 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
   const handleEditCard = (card: JournalCard) => {
     setEditingCard(card);
     setEditForm({
-      locationTitle: card.locationTitle || '',
-      playlistCategoryName: card.playlistCategoryName || '',
-      spotifyPlaylistName: card.spotifyPlaylistName || ''
+      locationTitle: card.locationTitle || "",
+      playlistCategoryName: card.playlistCategoryName || "",
+      spotifyPlaylistName: card.spotifyPlaylistName || "",
     });
   };
 
   const handleSaveEdit = () => {
     if (!editingCard) return;
-    
-    const updatedCards = journalCards.map(card => 
+
+    const updatedCards = journalCards.map((card) =>
       card.id === editingCard.id
         ? {
             ...card,
             locationTitle: editForm.locationTitle,
             playlistCategoryName: editForm.playlistCategoryName,
-            spotifyPlaylistName: editForm.spotifyPlaylistName
+            spotifyPlaylistName: editForm.spotifyPlaylistName,
           }
-        : card
+        : card,
     );
-    
+
     setJournalCards(updatedCards);
-    localStorage.setItem('moodJournalEntries', JSON.stringify(updatedCards));
-    
+    localStorage.setItem("moodJournalEntries", JSON.stringify(updatedCards));
+
     // Sync edited entry to Vercel relay → Google Sheets (silent fail)
-    const updatedEntry = updatedCards.find(c => c.id === editingCard.id);
+    const updatedEntry = updatedCards.find((c) => c.id === editingCard.id);
     if (updatedEntry) {
-      fetch("https://script.google.com/macros/s/AKfycbxHG_LlpJsANlHVJqhkl4EoM-_6F1pebnD5sLzhS7VtrOl7GaAf6e3EImsfxLhHn1Ea/exec", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedEntry),
-      }).catch((err) => console.log("Sync failed:", err));
+      fetch(
+        "https://script.google.com/macros/s/AKfycbxHG_LlpJsANlHVJqhkl4EoM-_6F1pebnD5sLzhS7VtrOl7GaAf6e3EImsfxLhHn1Ea/exec",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedEntry),
+        },
+      ).catch((err) => console.log("Sync failed:", err));
     }
-    
+
     toast({
       title: "Updated! ✏️",
       description: "Journey details updated and syncing...",
     });
-    
+
     setEditingCard(null);
   };
 
   const filteredCards = selectedCategory
-    ? journalCards.filter(card => card.category === selectedCategory)
+    ? journalCards.filter((card) => card.category === selectedCategory)
     : journalCards;
 
   return (
     <div className="h-full w-full overflow-y-auto">
       {/* Filter Bar */}
       <div className="sticky top-0 z-20">
-        <FilterBar 
-          selectedCategory={selectedCategory} 
-          onCategoryChange={onCategoryChange} 
-        />
+        <FilterBar selectedCategory={selectedCategory} onCategoryChange={onCategoryChange} />
       </div>
 
       {/* Journal Grid */}
@@ -286,13 +288,16 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         {/* Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {filteredCards.map((card) => (
-            <Card key={card.id} className="group overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-200">
+            <Card
+              key={card.id}
+              className="group overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-200"
+            >
               {/* Card Image */}
               <div className="relative aspect-video overflow-hidden bg-muted">
                 {card.summaryImage ? (
-                  <img 
+                  <img
                     src={card.summaryImage}
-                    alt={card.playlistName || 'Journey'}
+                    alt={card.playlistName || "Journey"}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                 ) : (
@@ -315,17 +320,17 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                     className="absolute -top-1 -right-1 h-8 w-8"
                     onClick={() => {
                       handleEditCard(card);
-                      window.dispatchEvent(new CustomEvent('tutorial-journal-edit'));
+                      window.dispatchEvent(new CustomEvent("tutorial-journal-edit"));
                     }}
                   >
                     <Edit2 className="h-4 w-4" />
                   </Button>
-                  <h3 className="text-base font-medium pr-8">{card.locationTitle || 'Unknown Location'}</h3>
+                  <h3 className="text-base font-medium pr-8">{card.locationTitle || "Unknown Location"}</h3>
                   <p className="text-sm text-muted-foreground">{card.playlistCategoryName || card.category}</p>
                   {card.spotifyPlaylistName && (
                     <p className="text-xs text-muted-foreground italic">{card.spotifyPlaylistName} - Spotify</p>
                   )}
-                  
+
                   {/* Mood Entries Summary */}
                   <div className="space-y-1 pt-2">
                     {card.moodEntries.map((entry, idx) => (
@@ -335,14 +340,14 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                       </div>
                     ))}
                   </div>
-                  
+
                   {/* Destination Photo Gallery */}
                   {card.destinationPhoto && (
                     <div className="pt-2 border-t border-border">
                       <p className="text-xs font-medium text-muted-foreground mb-2">Destination Photo</p>
                       <div className="w-full h-32 rounded-md overflow-hidden border border-border">
-                        <img 
-                          src={card.destinationPhoto} 
+                        <img
+                          src={card.destinationPhoto}
                           alt="Destination"
                           className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
                           onClick={() => setSelectedImage(card.destinationPhoto!)}
@@ -350,41 +355,41 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                       </div>
                     </div>
                   )}
-                  
+
                   <p className="text-sm text-muted-foreground pt-2">
-                    {new Date(card.timestamp).toLocaleDateString()} • {card.moodEntries.length} emotions • {' '}
+                    {new Date(card.timestamp).toLocaleDateString()} • {card.moodEntries.length} emotions •{" "}
                     <span className="font-medium capitalize">
-                      {card.category === 'peaceful' && '🌊 Peaceful'}
-                      {card.category === 'social' && '✨ Social'}
-                      {card.category === 'scenic' && '🌄 Scenic'}
+                      {card.category === "peaceful" && "🌊 Peaceful"}
+                      {card.category === "social" && "✨ Social"}
+                      {card.category === "scenic" && "🌄 Scenic"}
                     </span>
                   </p>
                 </div>
 
                 {/* Card Actions */}
                 <div className="flex gap-2 pt-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="flex-1 min-h-[44px]"
                     onClick={() => {
                       if (card.summaryImage) {
                         setSelectedImage(card.summaryImage);
                         setSelectedCardId(card.id);
                       }
-                      window.dispatchEvent(new CustomEvent('tutorial-journal-edit'));
+                      window.dispatchEvent(new CustomEvent("tutorial-journal-edit"));
                     }}
                   >
                     <Image className="w-4 h-4 mr-2" />
                     Photo
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="flex-1 min-h-[44px]"
                     onClick={() => {
                       handlePhotoUpload(card.id, false);
-                      window.dispatchEvent(new CustomEvent('tutorial-journal-edit'));
+                      window.dispatchEvent(new CustomEvent("tutorial-journal-edit"));
                     }}
                   >
                     <Image className="w-4 h-4 mr-2" />
@@ -405,15 +410,13 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
           {/* Empty state placeholder cards */}
           {[...Array(Math.max(1, 6 - filteredCards.length))].map((_, i) => (
-            <Card 
+            <Card
               key={`placeholder-${i}`}
               className="border-2 border-dashed border-border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer min-h-[300px] flex items-center justify-center"
             >
               <div className="text-center space-y-2 p-6">
                 <Plus className="w-12 h-12 mx-auto text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Create a new journal card
-                </p>
+                <p className="text-sm text-muted-foreground">Create a new journal card</p>
               </div>
             </Card>
           ))}
@@ -429,15 +432,11 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
           <div className="relative">
             {selectedImage && (
               <>
-                <img 
-                  src={selectedImage} 
-                  alt="Journey summary"
-                  className="w-full h-auto"
-                />
+                <img src={selectedImage} alt="Journey summary" className="w-full h-auto" />
                 <div className="absolute bottom-4 right-4">
                   <Button
                     onClick={() => {
-                      const card = journalCards.find(c => c.id === selectedCardId);
+                      const card = journalCards.find((c) => c.id === selectedCardId);
                       if (card) {
                         handleDownloadImage(card);
                       }
@@ -480,7 +479,9 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="spotifyPlaylistName">Spotify Playlist</Label>
+              <Label htmlFor="spotifyPlaylistName">
+                Chosen Spotify Playlist LINK (on Spotify app click share playlist & copy){" "}
+              </Label>
               <Input
                 id="spotifyPlaylistName"
                 value={editForm.spotifyPlaylistName}
