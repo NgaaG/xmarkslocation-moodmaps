@@ -7,6 +7,7 @@ import { X, Save, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CustomEmoji from "./CustomEmoji";
 import html2canvas from "html2canvas";
+import { supabase } from '@/lib/supabaseClient';
 
 interface MoodVisualizerProps {
   category: SpotCategory;
