@@ -227,7 +227,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     });
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingCard) return;
 
     const updatedCards = journalCards.map((card) =>
