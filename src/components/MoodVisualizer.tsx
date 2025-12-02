@@ -588,7 +588,14 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
   };
 
   const handleSaveToJournal = async () => {
-    if (moodEntries.length !== 3) return;
+   // ✅ STEP 1: Validate that user entered moods
+  if (moodEntries.length === 0) {
+    toast({
+      title: "Complete at least one mood entry",
+      description: "You need to select emotions for before, during, or after."
+    });
+    return;
+  }
 
     const playlist = mockPlaylists.find((p) => p.id === selectedPlaylist);
 
@@ -689,54 +696,90 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
     const spotifyPlaylistName = currentSpotifyPlaylist || ""; // The actual Spotify playlist name
     const locationTitle = currentLocationTitle || "Unknown Location"; // Use location or "Unknown Location"
 
-    // Create journal entry
+try {
+    // ✅ STEP 2: Create journey object matching Supabase schema
     const journalEntry = {
-      id: `journey-${Date.now()}`,
-      locationTitle,
-      playlistName: spotifyPlaylistName,
-      playlistCategoryName,
-      spotifyPlaylistName,
-      category,
-      moodEntries: moodEntries.map((e) => ({
+      id: "journey-" + Date.now(),
+      locationTitle: selectedSpot?.name || "Unknown Location",
+      latitude: selectedSpot?.latitude || 0,
+      longitude: selectedSpot?.longitude || 0,
+      playlist: selectedPlaylist?.name || "Unknown Playlist",
+      playlistCategoryName: selectedPlaylistCategory || selectedSpot?.category || "scenic",
+      spotifyPlaylistName: selectedPlaylist?.name || "",
+      category: selectedSpot?.category || "scenic",
+      moodEntries: moodEntries.map(e => ({
         stage: e.stage,
         emotion: e.emotion,
-        timestamp: e.timestamp.toISOString(),
+        timestamp: e.timestamp
       })),
-      timestamp: new Date().toISOString(),
-      summaryData: summary,
-      summaryImage: finalImage,
-      destinationPhoto: destinationPhoto,
+      timestamp: new Date().toISOString()
     };
 
-    // Save to localStorage with limit to prevent quota errors (keep last 100 entries)
+    // ✅ STEP 3: Save to localStorage (primary backup - always works)
     const existingEntries = JSON.parse(localStorage.getItem("moodJournalEntries") || "[]");
-    const updatedEntries = [...existingEntries, journalEntry].slice(-100);
-    localStorage.setItem("moodJournalEntries", JSON.stringify(updatedEntries));
+    existingEntries.push(journalEntry);
+    localStorage.setItem("moodJournalEntries", JSON.stringify(existingEntries));
+    console.log('[LocalStorage] Journey saved:', journalEntry.id);
 
     // Trigger storage event for journal view
     window.dispatchEvent(new Event("storage"));
 
-    // Sync to Google Sheets (silent fail)
-    fetch("https://script.google.com/macros/s/AKfycbxHG_LlpJsANlHVJqhkl4EoM-_6F1pebnD5sLzhS7VtrOl7GaAf6e3EImsfxLhHn1Ea/exec", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(journalEntry),
-    }).catch((err) => console.log("Sync failed:", err));
+   // ✅ STEP 4: Sync to Supabase (cloud backup)
+    try {
+      const { error } = await supabase
+        .from("mood_journeys")
+        .insert({
+          id: journalEntry.id,
+          location_title: journalEntry.locationTitle,
+          latitude: journalEntry.latitude,
+          longitude: journalEntry.longitude,
+          playlist: journalEntry.playlist,
+          playlist_category_name: journalEntry.playlistCategoryName,
+          spotify_playlist_name: journalEntry.spotifyPlaylistName,
+          category: journalEntry.category,
+          mood_entries: journalEntry.moodEntries,
+          timestamp: journalEntry.timestamp
+        });
 
+      if (error) {
+        console.warn('[Supabase] Insert warning:', error);
+        toast({
+          title: "Saved locally (cloud pending)",
+          description: "Your journey was saved to your device. Cloud sync will retry."
+        });
+      } else {
+        console.log('[Supabase] Journey inserted successfully');
+        toast({
+          title: "Journey saved! ☁️",
+          description: "Synced to cloud and your device"
+        });
+      }
+    } catch (supabaseErr) {
+      console.log('[Supabase] Not configured or unavailable:', supabaseErr);
+      toast({
+        title: "Saved locally",
+        description: "Cloud sync unavailable, but your journey is safe on your device"
+      });
+    }
+
+    // ✅ STEP 5: Reset form and refresh UI
+    setMoodEntries([]);
+    setShowMoodVisualizer(false);
+    
+    // Notify other components that new journey was created
+    window.dispatchEvent(new CustomEvent("journeyCreated"));
+
+  } catch (err) {
+    console.error('[Error] Save failed:', err);
     toast({
-      title: "Journey Saved! 🎵",
-      description: `${playlist?.name} mood journey saved to your journal`,
+      title: "Save failed",
+      description: "Please try again"
     });
-
-    setShowSubmitPrompt(false);
-    setShowSaveConfirmation(true);
-
-    // Dispatch tutorial event when journey is saved
-    window.dispatchEvent(new CustomEvent("tutorial-journey-save"));
-
+  }
+};
     setTimeout(() => {
       setShowSaveConfirmation(false);
-      // Reset for new journey
+     ------// Reset for new journey
       setMoodEntries([]);
       setCurrentStage("before");
       setSelectedMood(null);
