@@ -7,7 +7,6 @@ import { X, Save, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CustomEmoji from "./CustomEmoji";
 import html2canvas from "html2canvas";
-import { supabase } from '@/lib/supabaseClient';
 
 interface MoodVisualizerProps {
   category: SpotCategory;
@@ -587,109 +586,164 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
     input.click();
   };
 
-const handleSaveToJournal = async () => {
-  // ✅ STEP 1: Validate that user entered moods
-  if (moodEntries.length === 0) {
-    toast({
-      title: "Complete at least one mood entry",
-      description: "You need to select emotions for before, during, or after."
-    });
-    return;
-  }
+  const handleSaveToJournal = async () => {
+    if (moodEntries.length !== 3) return;
 
-  try {
-    // Get the selected playlist object
     const playlist = mockPlaylists.find((p) => p.id === selectedPlaylist);
-    
-    // ✅ STEP 2: Create journey object matching Supabase schema
-    const journalEntry = {
-      id: "journey-" + Date.now(),
-      locationTitle: currentLocationTitle || "Unknown Location",
-      latitude: 0,
-      longitude: 0,
-      playlist: currentSpotifyPlaylist || playlist?.name || "Unknown Playlist",
-      playlistCategoryName: playlist?.name || "",
-      spotifyPlaylistName: currentSpotifyPlaylist || "",
-      category: category,
-      moodEntries: moodEntries.map(e => ({
-        stage: e.stage,
-        emotion: e.emotion,
-        timestamp: e.timestamp
-      })),
-      timestamp: new Date().toISOString()
-    };
 
-    // ✅ STEP 3: Save to localStorage (primary backup - always works)
-    const existingEntries = JSON.parse(localStorage.getItem("moodJournalEntries") || "[]");
-    existingEntries.push(journalEntry);
-    localStorage.setItem("moodJournalEntries", JSON.stringify(existingEntries));
-    console.log('[LocalStorage] Journey saved:', journalEntry.id);
+    // Capture screenshot of summary with light theme and no overlays
+    let screenshotData: string | undefined;
+    if (summaryRef.current) {
+      try {
+        // Hide close button and other overlays
+        const closeButton = summaryRef.current.querySelector("button");
+        const originalDisplay = closeButton ? closeButton.style.display : "";
+        if (closeButton) closeButton.style.display = "none";
 
-    // ✅ STEP 4: Sync to Supabase (cloud backup)
-    try {
-      const { error } = await supabase
-        .from("mood_journeys")
-        .insert({
-          id: journalEntry.id,
-          location_title: journalEntry.locationTitle,
-          latitude: journalEntry.latitude,
-          longitude: journalEntry.longitude,
-          playlist: journalEntry.playlist,
-          playlist_category_name: journalEntry.playlistCategoryName,
-          spotify_playlist_name: journalEntry.spotifyPlaylistName,
-          category: journalEntry.category,
-          mood_entries: journalEntry.moodEntries,
-          timestamp: journalEntry.timestamp
-        });
+        // Apply light theme temporarily
+        const originalBg = summaryRef.current.style.backgroundColor;
+        const originalColor = summaryRef.current.style.color;
+        summaryRef.current.style.backgroundColor = "#fafafa";
+        summaryRef.current.style.color = "#111";
 
-      if (error) {
-        console.warn('[Supabase] Insert warning:', error);
-        toast({
-          title: "Saved locally (cloud pending)",
-          description: "Your journey was saved to your device. Cloud sync will retry."
+        const canvas = await html2canvas(summaryRef.current, {
+          backgroundColor: "#fafafa",
+          scale: 2,
+          logging: false,
         });
-      } else {
-        console.log('[Supabase] Journey inserted successfully');
-        toast({
-          title: "Journey saved! ☁️",
-          description: "Synced to cloud and your device"
-        });
+        screenshotData = canvas.toDataURL("image/png");
+
+        // Revert to original
+        summaryRef.current.style.backgroundColor = originalBg;
+        summaryRef.current.style.color = originalColor;
+        if (closeButton) closeButton.style.display = originalDisplay;
+      } catch (error) {
+        console.error("Failed to capture screenshot:", error);
       }
-    } catch (supabaseErr) {
-      console.log('[Supabase] Not configured or unavailable:', supabaseErr);
-      toast({
-        title: "Saved locally",
-        description: "Cloud sync unavailable, but your journey is safe on your device"
-      });
     }
 
-    // ✅ STEP 5: Reset form and refresh UI
-    setMoodEntries([]);
-    setCurrentStage("before");
-    setSelectedMood(null);
-    moodRef.current = null;
-    setDestinationPhoto(null);
-    setShowPhotoCapture(false);
-    setShowSubmitPrompt(false);
-    setShowSaveConfirmation(true);
-    
-    // Notify other components that new journey was created
-    window.dispatchEvent(new CustomEvent("journeyCreated"));
+    // Combine destination photo with summary if both exist
+    let finalImage = screenshotData;
+    if (destinationPhoto && screenshotData) {
+      try {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          // Load both images
+          const destImg = new Image();
+          const summaryImg = new Image();
+
+          await new Promise<void>((resolve) => {
+            let loadedCount = 0;
+            const checkLoaded = () => {
+              loadedCount++;
+              if (loadedCount === 2) resolve();
+            };
+
+            destImg.onload = checkLoaded;
+            summaryImg.onload = checkLoaded;
+            destImg.src = destinationPhoto;
+            summaryImg.src = screenshotData!;
+          });
+
+          // Set canvas size - place images side by side or stacked
+          const padding = 20;
+          canvas.width = Math.max(destImg.width, summaryImg.width);
+          canvas.height = destImg.height + summaryImg.height + padding * 3;
+
+          // White background
+          ctx.fillStyle = "#fafafa";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          // Draw destination photo on top
+          const destX = (canvas.width - destImg.width) / 2;
+          ctx.drawImage(destImg, destX, padding, destImg.width, destImg.height);
+
+          // Draw summary below
+          const summaryY = destImg.height + padding * 2;
+          const summaryX = (canvas.width - summaryImg.width) / 2;
+          ctx.drawImage(summaryImg, summaryX, summaryY, summaryImg.width, summaryImg.height);
+
+          finalImage = canvas.toDataURL("image/png");
+        }
+      } catch (error) {
+        console.error("Failed to combine images:", error);
+        // Fallback to just the summary
+        finalImage = screenshotData;
+      }
+    } else if (destinationPhoto) {
+      // Only destination photo, no summary
+      finalImage = destinationPhoto;
+    }
+
+    // Build summary text
+    const summary = {
+      before: moodEntries.find((e) => e.stage === "before"),
+      during: moodEntries.find((e) => e.stage === "during"),
+      after: moodEntries.find((e) => e.stage === "after"),
+    };
+
+    // Get stored data and selected playlist info
+    const playlistCategoryName = playlist?.name || ""; // The dropdown selection (e.g., "Coffeeshop Vibes")
+    const spotifyPlaylistName = currentSpotifyPlaylist || ""; // The actual Spotify playlist name
+    const locationTitle = currentLocationTitle || "Unknown Location"; // Use location or "Unknown Location"
+
+    // Create journal entry
+    const journalEntry = {
+      id: `journey-${Date.now()}`,
+      locationTitle,
+      playlistName: spotifyPlaylistName,
+      playlistCategoryName,
+      spotifyPlaylistName,
+      category,
+      moodEntries: moodEntries.map((e) => ({
+        stage: e.stage,
+        emotion: e.emotion,
+        timestamp: e.timestamp.toISOString(),
+      })),
+      timestamp: new Date().toISOString(),
+      summaryData: summary,
+      summaryImage: finalImage,
+      destinationPhoto: destinationPhoto,
+    };
+
+    // Save to localStorage with limit to prevent quota errors (keep last 100 entries)
+    const existingEntries = JSON.parse(localStorage.getItem("moodJournalEntries") || "[]");
+    const updatedEntries = [...existingEntries, journalEntry].slice(-100);
+    localStorage.setItem("moodJournalEntries", JSON.stringify(updatedEntries));
+
+    // Trigger storage event for journal view
     window.dispatchEvent(new Event("storage"));
 
-    // Hide confirmation after delay
+    // Sync to Google Sheets (silent fail)
+    fetch("https://script.google.com/macros/s/AKfycbxHG_LlpJsANlHVJqhkl4EoM-_6F1pebnD5sLzhS7VtrOl7GaAf6e3EImsfxLhHn1Ea/exec", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(journalEntry),
+    }).catch((err) => console.log("Sync failed:", err));
+
+    toast({
+      title: "Journey Saved! 🎵",
+      description: `${playlist?.name} mood journey saved to your journal`,
+    });
+
+    setShowSubmitPrompt(false);
+    setShowSaveConfirmation(true);
+
+    // Dispatch tutorial event when journey is saved
+    window.dispatchEvent(new CustomEvent("tutorial-journey-save"));
+
     setTimeout(() => {
       setShowSaveConfirmation(false);
+      // Reset for new journey
+      setMoodEntries([]);
+      setCurrentStage("before");
+      setSelectedMood(null);
+      moodRef.current = null;
+      setDestinationPhoto(null);
+      setShowPhotoCapture(false);
     }, 2000);
-
-  } catch (err) {
-    console.error('[Error] Save failed:', err);
-    toast({
-      title: "Save failed",
-      description: "Please try again"
-    });
-  }
-};
+  };
 
   const handleClose = () => {
     setShowOverlay(false);
