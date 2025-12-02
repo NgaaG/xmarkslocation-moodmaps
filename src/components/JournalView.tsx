@@ -243,24 +243,33 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
     setJournalCards(updatedCards);
     localStorage.setItem("moodJournalEntries", JSON.stringify(updatedCards));
+    console.log('[JournalView] Card edited:', editingCard.id);
+    
+// ✅ STEP 3: Sync to Supabase
+  try {
+    const { error } = await supabase
+      .from("mood_journeys")
+      .update({
+        location_title: editForm.locationTitle,
+        playlist_category_name: editForm.playlistCategoryName,
+        spotify_playlist_name: editForm.spotifyPlaylistName,
+      })
+      .eq("id", editingCard.id);
 
-    // Sync edited entry to Vercel relay → Google Sheets (silent fail)
-    const updatedEntry = updatedCards.find((c) => c.id === editingCard.id);
-    if (updatedEntry) {
-      fetch(
-        "https://script.google.com/macros/s/AKfycbxHG_LlpJsANlHVJqhkl4EoM-_6F1pebnD5sLzhS7VtrOl7GaAf6e3EImsfxLhHn1Ea/exec",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatedEntry),
-        },
-      ).catch((err) => console.log("Sync failed:", err));
+    if (error) {
+      console.warn('[Supabase] Update failed:', error);
+    } else {
+      console.log('[Supabase] Card updated successfully');
     }
+  } catch (err) {
+    console.log('[Supabase] Update unavailable:', err);
+  }
 
-    toast({
-      title: "Updated! ✏️",
-      description: "Journey details updated and syncing...",
-    });
+  // ✅ STEP 4: Show feedback to user
+  toast({
+    title: "Updated! ✏️",
+    description: "Journey details updated",
+  });
 
     setEditingCard(null);
   };
