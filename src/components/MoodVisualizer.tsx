@@ -712,7 +712,10 @@ try {
         emotion: e.emotion,
         timestamp: e.timestamp
       })),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      summaryImage: finalImage,
+      destinationPhoto: destinationPhoto,
+      summaryData: summary
     };
 
     // ✅ STEP 3: Save to localStorage (primary backup - always works)
