@@ -700,13 +700,13 @@ try {
     // ✅ STEP 2: Create journey object matching Supabase schema
     const journalEntry = {
       id: "journey-" + Date.now(),
-      locationTitle: selectedSpot?.name || "Unknown Location",
-      latitude: selectedSpot?.latitude || 0,
-      longitude: selectedSpot?.longitude || 0,
-      playlist: selectedPlaylist?.name || "Unknown Playlist",
-      playlistCategoryName: selectedPlaylistCategory || selectedSpot?.category || "scenic",
-      spotifyPlaylistName: selectedPlaylist?.name || "",
-      category: selectedSpot?.category || "scenic",
+      locationTitle: locationTitle,
+      latitude: 0,
+      longitude: 0,
+      playlist: playlist?.name || "Unknown Playlist",
+      playlistCategoryName: playlistCategoryName,
+      spotifyPlaylistName: spotifyPlaylistName,
+      category: category,
       moodEntries: moodEntries.map(e => ({
         stage: e.stage,
         emotion: e.emotion,
@@ -764,7 +764,13 @@ try {
 
     // ✅ STEP 5: Reset form and refresh UI
     setMoodEntries([]);
-    setShowMoodVisualizer(false);
+    setCurrentStage("before");
+    setSelectedMood(null);
+    moodRef.current = null;
+    setDestinationPhoto(null);
+    setShowPhotoCapture(false);
+    setShowSubmitPrompt(false);
+    setShowSaveConfirmation(true);
     
     // Notify other components that new journey was created
     window.dispatchEvent(new CustomEvent("journeyCreated"));
@@ -777,17 +783,6 @@ try {
     });
   }
 };
-    setTimeout(() => {
-      setShowSaveConfirmation(false);
-     ------// Reset for new journey
-      setMoodEntries([]);
-      setCurrentStage("before");
-      setSelectedMood(null);
-      moodRef.current = null;
-      setDestinationPhoto(null);
-      setShowPhotoCapture(false);
-    }, 2000);
-  };
 
   const handleClose = () => {
     setShowOverlay(false);
