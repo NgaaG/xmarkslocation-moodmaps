@@ -752,10 +752,10 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
         timestamp: e.timestamp
       })),
       timestamp: new Date().toISOString(),
-      summaryImage: finalImage,           // Keep full image for localStorage display
-      destinationPhoto: destinationPhoto, // Keep destination photo
+      summaryImage: null,           // Keep full image for localStorage display
+      destinationPhoto: null, // Keep destination photo
       summaryData: summary,
-      combinedImageUrl: combinedImageUrl || null
+      combinedImageUrl: combinedImageUrl || null,
     };
 
     // ✅ STEP 3: Save to localStorage (primary backup - always works)
