@@ -703,7 +703,7 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
     // Upload finalImage to Supabase Storage first (if present)
     if (finalImage) {
       try {
-        const storageBucket = "journey-images"; // Correct bucket name
+        const storageBucket = "journey-photos"; // Correct bucket name
         const journeyIdForFile = "journey-" + Date.now();
 
         // Convert data URL -> Blob -> File
@@ -737,26 +737,30 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
       }
     }
 
-    // ✅ STEP 2: Create journey object for localStorage (keep images small with URLs)
-    const journeyId = "journey-" + Date.now();
-    const journalEntry = {
-      id: journeyId,
-      locationTitle: locationTitle,
-      playlist: playlist?.name || "Unknown Playlist",
-      playlistCategoryName: playlistCategoryName,
-      spotifyPlaylistName: spotifyPlaylistName,
-      category: category,
-      moodEntries: moodEntries.map(e => ({
-        stage: e.stage,
-        emotion: e.emotion,
-        timestamp: e.timestamp
-      })),
-      timestamp: new Date().toISOString(),
-      summaryImage: finalImage,           // Keep full image for localStorage display
-      destinationPhoto: destinationPhoto, // Keep destination photo
-      summaryData: summary,
-      combinedImageUrl: combinedImageUrl || null
-    };
+    // ✅ STEP 2: Create journey object matching Supabase schema
+const journalEntry = {
+  id: "journey-" + Date.now(),
+  locationTitle: locationTitle,
+  latitude: 0,
+  longitude: 0,
+  playlist: playlist?.name || "Unknown Playlist",
+  playlistCategoryName: playlistCategoryName,
+  spotifyPlaylistName: spotifyPlaylistName,
+  category: category,
+  moodEntries: moodEntries.map(e => ({
+    stage: e.stage,
+    emotion: e.emotion,
+    timestamp: e.timestamp
+  })),
+  timestamp: new Date().toISOString(),
+
+  // IMPORTANT: keep localStorage tiny
+  summaryImage: null,                 // <‑ remove big PNG from localStorage
+  destinationPhoto: null,             // <‑ remove raw photo blob
+  summaryData: summary,
+  combinedImageUrl: combinedImageUrl || null // <‑ small URL is fine
+};
+
 
     // ✅ STEP 3: Save to localStorage (primary backup - always works)
     const existingEntries = JSON.parse(localStorage.getItem("moodJournalEntries") || "[]");
@@ -772,17 +776,18 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
       const { error } = await supabase
         .from("journal_entries")
         .insert({
-          user_id: '00000000-0000-0000-0000-000000000000',
-          location_title: locationTitle,
-          playlist_name: playlist?.name || "Unknown Playlist",
-          playlist_category_name: playlistCategoryName,
-          spotify_playlist_name: spotifyPlaylistName,
-          category: category,
+          id: journalEntry.id,
+          user_id: '00000000-0000-0000-0000-000000000000', // Anonymous user ID for unauthenticated entries
+          location_title: journalEntry.locationTitle,
+          playlist_name: journalEntry.playlist,
+          playlist_category_name: journalEntry.playlistCategoryName,
+          spotify_playlist_name: journalEntry.spotifyPlaylistName,
+          category: journalEntry.category,
           mood_entries: journalEntry.moodEntries,
-          destination_photo: destinationPhoto || null,
-          combined_image_url: combinedImageUrl || null,
-          summary_image: finalImage || null,
-          summary_data: summary || null,
+          destination_photo: journalEntry.destinationPhoto || null,
+          combined_image_url: journalEntry.combinedImageUrl || null,
+          summary_image: journalEntry.summaryImage || null,
+          summary_data: journalEntry.summaryData || null,
         });
 
       if (error) {
