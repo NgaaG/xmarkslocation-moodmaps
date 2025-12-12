@@ -738,26 +738,30 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
     }
 
     // ✅ STEP 2: Create journey object matching Supabase schema
-    const journalEntry = {
-      id: "journey-" + Date.now(),
-      locationTitle: locationTitle,
-      latitude: 0,
-      longitude: 0,
-      playlist: playlist?.name || "Unknown Playlist",
-      playlistCategoryName: playlistCategoryName,
-      spotifyPlaylistName: spotifyPlaylistName,
-      category: category,
-      moodEntries: moodEntries.map(e => ({
-        stage: e.stage,
-        emotion: e.emotion,
-        timestamp: e.timestamp
-      })),
-      timestamp: new Date().toISOString(),
-      summaryImage: finalImage,
-      destinationPhoto: destinationPhoto,
-      summaryData: summary,
-      combinedImageUrl: combinedImageUrl || null, // NEW: store Supabase URL on journal entry
-    };
+    // ✅ STEP 2: Create journey object matching Supabase schema
+const journalEntry = {
+  id: "journey-" + Date.now(),
+  locationTitle: locationTitle,
+  latitude: 0,
+  longitude: 0,
+  playlist: playlist?.name || "Unknown Playlist",
+  playlistCategoryName: playlistCategoryName,
+  spotifyPlaylistName: spotifyPlaylistName,
+  category: category,
+  moodEntries: moodEntries.map(e => ({
+    stage: e.stage,
+    emotion: e.emotion,
+    timestamp: e.timestamp
+  })),
+  timestamp: new Date().toISOString(),
+
+  // IMPORTANT: keep localStorage tiny
+  summaryImage: null,                 // <‑ remove big PNG from localStorage
+  destinationPhoto: null,             // <‑ remove raw photo blob
+  summaryData: summary,
+  combinedImageUrl: combinedImageUrl || null // <‑ small URL is fine
+};
+
 
     // ✅ STEP 3: Save to localStorage (primary backup - always works)
     const existingEntries = JSON.parse(localStorage.getItem("moodJournalEntries") || "[]");
