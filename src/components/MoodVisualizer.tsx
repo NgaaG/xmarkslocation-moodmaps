@@ -703,7 +703,7 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
     // Upload finalImage to Supabase Storage first (if present)
     if (finalImage) {
       try {
-        const storageBucket = "journey-images"; // Correct bucket name
+        const storageBucket = "journey-photos"; // Correct bucket name
         const journeyIdForFile = "journey-" + Date.now();
 
         // Convert data URL -> Blob -> File
