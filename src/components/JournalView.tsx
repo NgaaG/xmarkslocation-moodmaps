@@ -139,9 +139,18 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       const destWidth = destImg.width * destScale;
       const destHeight = destImg.height * destScale;
 
-      // Set canvas size - both images at full width
-      canvas.width = summaryWidth + padding * 2;
-      canvas.height = summaryHeight + destHeight + gap + padding * 2;
+      // Mobile quality enhancement - use device pixel ratio for retina displays
+      const scale = Math.min(window.devicePixelRatio || 2, 3); // Cap at 3x for performance
+      
+      // Set canvas size with pixel ratio scaling
+      const canvasLogicalWidth = summaryWidth + padding * 2;
+      const canvasLogicalHeight = summaryHeight + destHeight + gap + padding * 2;
+      
+      canvas.width = canvasLogicalWidth * scale;
+      canvas.height = canvasLogicalHeight * scale;
+      
+      // Scale context for high DPI rendering
+      ctx.scale(scale, scale);
 
       // Enable high-quality rendering with full opacity
       ctx.imageSmoothingEnabled = true;
@@ -150,7 +159,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
       // White background
       ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, canvasLogicalWidth, canvasLogicalHeight);
 
       // Draw summary on top (centered horizontally)
       const summaryX = padding;
@@ -165,7 +174,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       // Add metadata text overlay at the bottom
       const textPadding = 20;
       const textHeight = 100;
-      const textY = canvas.height - textHeight - padding;
+      const textY = canvasLogicalHeight - textHeight - padding;
 
       // Semi-transparent background for text
       ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
@@ -193,6 +202,37 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         padding + textPadding,
         textY + textPadding + 64,
       );
+
+      // Convert canvas to blob for upload
+      const blob = await new Promise<Blob>((resolve) =>
+        canvas.toBlob((b) => resolve(b!), "image/png", 1.0)
+      );
+
+      // Upload to Supabase Storage
+      const fileName = `${card.id}-${Date.now()}.png`;
+      try {
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("journey-images")
+          .upload(fileName, blob, { contentType: "image/png", upsert: true });
+
+        if (!uploadError && uploadData) {
+          const { data: urlData } = supabase.storage
+            .from("journey-images")
+            .getPublicUrl(fileName);
+
+          // Update the journal entry with the public URL
+          await supabase
+            .from("journal_entries")
+            .update({ combined_image_url: urlData.publicUrl })
+            .eq("id", card.id);
+
+          console.log("[Supabase] Combined image uploaded:", urlData.publicUrl);
+        } else {
+          console.warn("[Supabase] Upload failed:", uploadError);
+        }
+      } catch (err) {
+        console.log("[Supabase] Upload unavailable:", err);
+      }
 
       // Download combined image with maximum quality
       const link = document.createElement("a");
@@ -245,25 +285,25 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     localStorage.setItem("moodJournalEntries", JSON.stringify(updatedCards));
     console.log('[JournalView] Card edited:', editingCard.id);
     
-// ✅ STEP 3: Sync to Supabase
-  try {
-    const { error } = await supabase
-      .from("mood_journeys")
-      .update({
-        location_title: editForm.locationTitle,
-        playlist_category_name: editForm.playlistCategoryName,
-        spotify_playlist_name: editForm.spotifyPlaylistName,
-      })
-      .eq("id", editingCard.id);
+    // Sync to Supabase
+    try {
+      const { error } = await supabase
+        .from("journal_entries")
+        .update({
+          location_title: editForm.locationTitle,
+          playlist_category_name: editForm.playlistCategoryName,
+          spotify_playlist_name: editForm.spotifyPlaylistName,
+        })
+        .eq("id", editingCard.id);
 
-    if (error) {
-      console.warn('[Supabase] Update failed:', error);
-    } else {
-      console.log('[Supabase] Card updated successfully');
+      if (error) {
+        console.warn('[Supabase] Update failed:', error);
+      } else {
+        console.log('[Supabase] Card updated successfully');
+      }
+    } catch (err) {
+      console.log('[Supabase] Update unavailable:', err);
     }
-  } catch (err) {
-    console.log('[Supabase] Update unavailable:', err);
-  }
 
   // ✅ STEP 4: Show feedback to user
   toast({

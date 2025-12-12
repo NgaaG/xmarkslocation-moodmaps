@@ -17,10 +17,15 @@ export type Database = {
       journal_entries: {
         Row: {
           category: string
+          combined_image_url: string | null
           created_at: string
+          destination_photo: string | null
           id: string
+          location_title: string | null
           mood_entries: Json
+          playlist_category_name: string | null
           playlist_name: string | null
+          spotify_playlist_name: string | null
           summary_data: Json | null
           summary_image: string | null
           updated_at: string
@@ -28,10 +33,15 @@ export type Database = {
         }
         Insert: {
           category: string
+          combined_image_url?: string | null
           created_at?: string
+          destination_photo?: string | null
           id?: string
+          location_title?: string | null
           mood_entries?: Json
+          playlist_category_name?: string | null
           playlist_name?: string | null
+          spotify_playlist_name?: string | null
           summary_data?: Json | null
           summary_image?: string | null
           updated_at?: string
@@ -39,10 +49,15 @@ export type Database = {
         }
         Update: {
           category?: string
+          combined_image_url?: string | null
           created_at?: string
+          destination_photo?: string | null
           id?: string
+          location_title?: string | null
           mood_entries?: Json
+          playlist_category_name?: string | null
           playlist_name?: string | null
+          spotify_playlist_name?: string | null
           summary_data?: Json | null
           summary_image?: string | null
           updated_at?: string
