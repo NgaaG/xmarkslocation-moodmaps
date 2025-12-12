@@ -588,7 +588,7 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
   };
 
   const handleSaveToJournal = async () => {
-   // ✅ STEP 1: Validate that user entered moods
+  // ✅ STEP 1: Validate that user entered moods
   if (moodEntries.length === 0) {
     toast({
       title: "Complete at least one mood entry",
@@ -597,106 +597,146 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
     return;
   }
 
-    const playlist = mockPlaylists.find((p) => p.id === selectedPlaylist);
+  const playlist = mockPlaylists.find((p) => p.id === selectedPlaylist);
 
-    // Capture screenshot of summary with light theme and no overlays
-    let screenshotData: string | undefined;
-    if (summaryRef.current) {
-      try {
-        // Hide close button and other overlays
-        const closeButton = summaryRef.current.querySelector("button");
-        const originalDisplay = closeButton ? closeButton.style.display : "";
-        if (closeButton) closeButton.style.display = "none";
+  // Capture screenshot of summary with light theme and no overlays
+  let screenshotData: string | undefined;
+  if (summaryRef.current) {
+    try {
+      // Hide close button and other overlays
+      const closeButton = summaryRef.current.querySelector("button");
+      const originalDisplay = closeButton ? closeButton.style.display : "";
+      if (closeButton) closeButton.style.display = "none";
 
-        // Apply light theme temporarily
-        const originalBg = summaryRef.current.style.backgroundColor;
-        const originalColor = summaryRef.current.style.color;
-        summaryRef.current.style.backgroundColor = "#fafafa";
-        summaryRef.current.style.color = "#111";
+      // Apply light theme temporarily
+      const originalBg = summaryRef.current.style.backgroundColor;
+      const originalColor = summaryRef.current.style.color;
+      summaryRef.current.style.backgroundColor = "#fafafa";
+      summaryRef.current.style.color = "#111";
 
-        const canvas = await html2canvas(summaryRef.current, {
-          backgroundColor: "#fafafa",
-          scale: 2,
-          logging: false,
+      const canvas = await html2canvas(summaryRef.current, {
+        backgroundColor: "#fafafa",
+        scale: 2,
+        logging: false,
+      });
+      screenshotData = canvas.toDataURL("image/png");
+
+      // Revert to original
+      summaryRef.current.style.backgroundColor = originalBg;
+      summaryRef.current.style.color = originalColor;
+      if (closeButton) closeButton.style.display = originalDisplay;
+    } catch (error) {
+      console.error("Failed to capture screenshot:", error);
+    }
+  }
+
+  // Combine destination photo with summary if both exist
+  let finalImage = screenshotData;
+  if (destinationPhoto && screenshotData) {
+    try {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        // Load both images
+        const destImg = new Image();
+        const summaryImg = new Image();
+
+        await new Promise<void>((resolve) => {
+          let loadedCount = 0;
+          const checkLoaded = () => {
+            loadedCount++;
+            if (loadedCount === 2) resolve();
+          };
+
+          destImg.onload = checkLoaded;
+          summaryImg.onload = checkLoaded;
+          destImg.src = destinationPhoto;
+          summaryImg.src = screenshotData!;
         });
-        screenshotData = canvas.toDataURL("image/png");
 
-        // Revert to original
-        summaryRef.current.style.backgroundColor = originalBg;
-        summaryRef.current.style.color = originalColor;
-        if (closeButton) closeButton.style.display = originalDisplay;
-      } catch (error) {
-        console.error("Failed to capture screenshot:", error);
+        // Set canvas size - place images side by side or stacked
+        const padding = 20;
+        canvas.width = Math.max(destImg.width, summaryImg.width);
+        canvas.height = destImg.height + summaryImg.height + padding * 3;
+
+        // White background
+        ctx.fillStyle = "#fafafa";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Draw destination photo on top
+        const destX = (canvas.width - destImg.width) / 2;
+        ctx.drawImage(destImg, destX, padding, destImg.width, destImg.height);
+
+        // Draw summary below
+        const summaryY = destImg.height + padding * 2;
+        const summaryX = (canvas.width - summaryImg.width) / 2;
+        ctx.drawImage(summaryImg, summaryX, summaryY, summaryImg.width, summaryImg.height);
+
+        finalImage = canvas.toDataURL("image/png");
       }
+    } catch (error) {
+      console.error("Failed to combine images:", error);
+      // Fallback to just the summary
+      finalImage = screenshotData;
     }
+  } else if (destinationPhoto) {
+    // Only destination photo, no summary
+    finalImage = destinationPhoto;
+  }
 
-    // Combine destination photo with summary if both exist
-    let finalImage = screenshotData;
-    if (destinationPhoto && screenshotData) {
-      try {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          // Load both images
-          const destImg = new Image();
-          const summaryImg = new Image();
+  // 🌟 NEW: URL of uploaded combined image (stored after Supabase upload)
+  let combinedImageUrl: string | undefined = undefined; // NEW
 
-          await new Promise<void>((resolve) => {
-            let loadedCount = 0;
-            const checkLoaded = () => {
-              loadedCount++;
-              if (loadedCount === 2) resolve();
-            };
+  // Build summary text
+  const summary = {
+    before: moodEntries.find((e) => e.stage === "before"),
+    during: moodEntries.find((e) => e.stage === "during"),
+    after: moodEntries.find((e) => e.stage === "after"),
+  };
 
-            destImg.onload = checkLoaded;
-            summaryImg.onload = checkLoaded;
-            destImg.src = destinationPhoto;
-            summaryImg.src = screenshotData!;
-          });
+  // Get stored data and selected playlist info
+  const playlistCategoryName = playlist?.name || ""; // The dropdown selection (e.g., "Coffeeshop Vibes")
+  const spotifyPlaylistName = currentSpotifyPlaylist || ""; // The actual Spotify playlist name
+  const locationTitle = currentLocationTitle || "Unknown Location"; // Use location or "Unknown Location"
 
-          // Set canvas size - place images side by side or stacked
-          const padding = 20;
-          canvas.width = Math.max(destImg.width, summaryImg.width);
-          canvas.height = destImg.height + summaryImg.height + padding * 3;
+  try {
+    // 🌟 NEW: Upload finalImage to Supabase Storage first (if present)
+    if (finalImage) { // NEW
+      try { // NEW
+        const storageBucket = "journey-photos"; // NEW - bucket name
+        const journeyIdForFile = "journey-" + Date.now(); // NEW - file key, separate from DB id
 
-          // White background
-          ctx.fillStyle = "#fafafa";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-          // Draw destination photo on top
-          const destX = (canvas.width - destImg.width) / 2;
-          ctx.drawImage(destImg, destX, padding, destImg.width, destImg.height);
-
-          // Draw summary below
-          const summaryY = destImg.height + padding * 2;
-          const summaryX = (canvas.width - summaryImg.width) / 2;
-          ctx.drawImage(summaryImg, summaryX, summaryY, summaryImg.width, summaryImg.height);
-
-          finalImage = canvas.toDataURL("image/png");
+        // NEW - convert data URL -> Blob -> File
+        const byteString = atob(finalImage.split(",")[1]);
+        const mimeString = finalImage.split(",")[0].split(":")[1].split(";")[0];
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+          ia[i] = byteString.charCodeAt(i);
         }
-      } catch (error) {
-        console.error("Failed to combine images:", error);
-        // Fallback to just the summary
-        finalImage = screenshotData;
+        const blob = new Blob([ab], { type: mimeString });
+        const file = new File([blob], `${journeyIdForFile}.png`, { type: mimeString });
+
+        const filePath = `combined/${journeyIdForFile}.png`; // NEW - folder path inside bucket
+
+        const { error: uploadError } = await supabase.storage
+          .from(storageBucket)
+          .upload(filePath, file, { upsert: true }); // NEW - upload combined PNG
+
+        if (!uploadError) {
+          const { data } = supabase.storage
+            .from(storageBucket)
+            .getPublicUrl(filePath); // NEW - get public URL
+
+          combinedImageUrl = data.publicUrl; // NEW - store URL for DB + local state
+        } else {
+          console.error("[Supabase] Upload failed:", uploadError); // NEW
+        }
+      } catch (uploadErr) {
+        console.error("[Supabase] Combined image upload error:", uploadErr); // NEW
       }
-    } else if (destinationPhoto) {
-      // Only destination photo, no summary
-      finalImage = destinationPhoto;
     }
 
-    // Build summary text
-    const summary = {
-      before: moodEntries.find((e) => e.stage === "before"),
-      during: moodEntries.find((e) => e.stage === "during"),
-      after: moodEntries.find((e) => e.stage === "after"),
-    };
-
-    // Get stored data and selected playlist info
-    const playlistCategoryName = playlist?.name || ""; // The dropdown selection (e.g., "Coffeeshop Vibes")
-    const spotifyPlaylistName = currentSpotifyPlaylist || ""; // The actual Spotify playlist name
-    const locationTitle = currentLocationTitle || "Unknown Location"; // Use location or "Unknown Location"
-
-try {
     // ✅ STEP 2: Create journey object matching Supabase schema
     const journalEntry = {
       id: "journey-" + Date.now(),
@@ -715,7 +755,8 @@ try {
       timestamp: new Date().toISOString(),
       summaryImage: finalImage,
       destinationPhoto: destinationPhoto,
-      summaryData: summary
+      summaryData: summary,
+      combinedImageUrl: combinedImageUrl || null, // NEW: store Supabase URL on journal entry
     };
 
     // ✅ STEP 3: Save to localStorage (primary backup - always works)
@@ -727,7 +768,7 @@ try {
     // Trigger storage event for journal view
     window.dispatchEvent(new Event("storage"));
 
-   // ✅ STEP 4: Sync to Supabase (cloud backup)
+    // ✅ STEP 4: Sync to Supabase (cloud backup)
     try {
       const { error } = await supabase
         .from("mood_journeys")
@@ -741,6 +782,8 @@ try {
           spotify_playlist_name: journalEntry.spotifyPlaylistName,
           category: journalEntry.category,
           mood_entries: journalEntry.moodEntries,
+          destination_image_url: journalEntry.destinationPhoto || null, // NEW: raw destination photo if you keep it
+          combined_image_url: journalEntry.combinedImageUrl || null,    // NEW: Supabase URL of combined PNG
           timestamp: journalEntry.timestamp
         });
 
@@ -786,6 +829,7 @@ try {
     });
   }
 };
+
 
   const handleClose = () => {
     setShowOverlay(false);
