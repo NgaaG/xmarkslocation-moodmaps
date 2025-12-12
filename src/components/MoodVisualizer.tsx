@@ -700,13 +700,13 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
   const locationTitle = currentLocationTitle || "Unknown Location"; // Use location or "Unknown Location"
 
   try {
-    // 🌟 NEW: Upload finalImage to Supabase Storage first (if present)
-    if (finalImage) { // NEW
-      try { // NEW
-        const storageBucket = "journey-photos"; // NEW - bucket name
-        const journeyIdForFile = "journey-" + Date.now(); // NEW - file key, separate from DB id
+    // Upload finalImage to Supabase Storage first (if present)
+    if (finalImage) {
+      try {
+        const storageBucket = "journey-images"; // Correct bucket name
+        const journeyIdForFile = "journey-" + Date.now();
 
-        // NEW - convert data URL -> Blob -> File
+        // Convert data URL -> Blob -> File
         const byteString = atob(finalImage.split(",")[1]);
         const mimeString = finalImage.split(",")[0].split(":")[1].split(";")[0];
         const ab = new ArrayBuffer(byteString.length);
@@ -717,23 +717,23 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
         const blob = new Blob([ab], { type: mimeString });
         const file = new File([blob], `${journeyIdForFile}.png`, { type: mimeString });
 
-        const filePath = `combined/${journeyIdForFile}.png`; // NEW - folder path inside bucket
+        const filePath = `combined/${journeyIdForFile}.png`;
 
         const { error: uploadError } = await supabase.storage
           .from(storageBucket)
-          .upload(filePath, file, { upsert: true }); // NEW - upload combined PNG
+          .upload(filePath, file, { upsert: true });
 
         if (!uploadError) {
           const { data } = supabase.storage
             .from(storageBucket)
-            .getPublicUrl(filePath); // NEW - get public URL
+            .getPublicUrl(filePath);
 
-          combinedImageUrl = data.publicUrl; // NEW - store URL for DB + local state
+          combinedImageUrl = data.publicUrl;
         } else {
-          console.error("[Supabase] Upload failed:", uploadError); // NEW
+          console.error("[Supabase] Upload failed:", uploadError);
         }
       } catch (uploadErr) {
-        console.error("[Supabase] Combined image upload error:", uploadErr); // NEW
+        console.error("[Supabase] Combined image upload error:", uploadErr);
       }
     }
 
@@ -768,23 +768,23 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
     // Trigger storage event for journal view
     window.dispatchEvent(new Event("storage"));
 
-    // ✅ STEP 4: Sync to Supabase (cloud backup)
+    // Sync to Supabase (cloud backup) - uses anonymous user_id since no auth
     try {
       const { error } = await supabase
-        .from("mood_journeys")
+        .from("journal_entries")
         .insert({
           id: journalEntry.id,
+          user_id: '00000000-0000-0000-0000-000000000000', // Anonymous user ID for unauthenticated entries
           location_title: journalEntry.locationTitle,
-          latitude: journalEntry.latitude,
-          longitude: journalEntry.longitude,
-          playlist: journalEntry.playlist,
+          playlist_name: journalEntry.playlist,
           playlist_category_name: journalEntry.playlistCategoryName,
           spotify_playlist_name: journalEntry.spotifyPlaylistName,
           category: journalEntry.category,
           mood_entries: journalEntry.moodEntries,
-          destination_image_url: journalEntry.destinationPhoto || null, // NEW: raw destination photo if you keep it
-          combined_image_url: journalEntry.combinedImageUrl || null,    // NEW: Supabase URL of combined PNG
-          timestamp: journalEntry.timestamp
+          destination_photo: journalEntry.destinationPhoto || null,
+          combined_image_url: journalEntry.combinedImageUrl || null,
+          summary_image: journalEntry.summaryImage || null,
+          summary_data: journalEntry.summaryData || null,
         });
 
       if (error) {
@@ -796,7 +796,7 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
       } else {
         console.log('[Supabase] Journey inserted successfully');
         toast({
-          title: "Journey saved! ☁️",
+          title: "Journey saved!",
           description: "Synced to cloud and your device"
         });
       }
