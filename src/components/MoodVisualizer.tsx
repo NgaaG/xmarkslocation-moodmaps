@@ -770,20 +770,22 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
     // Sync to Supabase (cloud backup) - uses anonymous user_id since no auth
     try {
       const { error } = await supabase
-        .from("journal_entries")
-        .insert({
-          user_id: '00000000-0000-0000-0000-000000000000',
-          location_title: locationTitle,
-          playlist_name: playlist?.name || "Unknown Playlist",
-          playlist_category_name: playlistCategoryName,
-          spotify_playlist_name: spotifyPlaylistName,
-          category: category,
-          mood_entries: journalEntry.moodEntries,
-          destination_photo: destinationPhoto || null,
-          combined_image_url: combinedImageUrl || null,
-          summary_image: finalImage || null,
-          summary_data: summary || null,
-        });
+       .from("mood_journeys")
+      .insert({
+      id: journalEntry.id,
+      location_title: journalEntry.locationTitle,
+      latitude: journalEntry.latitude,
+      longitude: journalEntry.longitude,
+      playlist: journalEntry.playlist,
+      playlist_category_name: journalEntry.playlistCategoryName,
+      spotify_playlist_name: journalEntry.spotifyPlaylistName,
+      category: journalEntry.category,
+      mood_entries: journalEntry.moodEntries,
+      destination_image_url: journalEntry.destinationPhoto || null,
+      combined_image_url: journalEntry.combinedImageUrl || null,
+      timestamp: journalEntry.timestamp,
+});
+
 
       if (error) {
         console.warn('[Supabase] Insert warning:', error);
