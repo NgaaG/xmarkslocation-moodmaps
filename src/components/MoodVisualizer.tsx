@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import CustomEmoji from "./CustomEmoji";
 import html2canvas from "html2canvas";
 import { supabase } from '@/lib/supabaseClient';
+import { retryWithBackoff } from "@/hooks/useRetryWithBackoff";
 
 interface MoodVisualizerProps {
   category: SpotCategory;
@@ -700,10 +701,10 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
   const locationTitle = currentLocationTitle || "Unknown Location"; // Use location or "Unknown Location"
 
   try {
-    // Upload finalImage to Supabase Storage first (if present)
+    // Upload finalImage to Supabase Storage first (if present) with retry
     if (finalImage) {
       try {
-        const storageBucket = "journey-photos"; // Correct bucket name
+        const storageBucket = "journey-images"; // Correct bucket name
         const journeyIdForFile = "journey-" + Date.now();
 
         // Convert data URL -> Blob -> File
@@ -719,21 +720,37 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
 
         const filePath = `combined/${journeyIdForFile}.png`;
 
-        const { error: uploadError } = await supabase.storage
-          .from(storageBucket)
-          .upload(filePath, file, { upsert: true });
+        // Retry upload with exponential backoff
+        const uploadResult = await retryWithBackoff(
+          async () => {
+            const { error: uploadError, data } = await supabase.storage
+              .from(storageBucket)
+              .upload(filePath, file, { upsert: true });
+            
+            if (uploadError) {
+              throw uploadError;
+            }
+            return data;
+          },
+          {
+            maxRetries: 3,
+            baseDelay: 1000,
+            onRetry: (attempt) => {
+              console.log(`[Supabase Storage] Retry attempt ${attempt} for image upload...`);
+            }
+          }
+        );
 
-        if (!uploadError) {
+        if (uploadResult) {
           const { data } = supabase.storage
             .from(storageBucket)
             .getPublicUrl(filePath);
 
           combinedImageUrl = data.publicUrl;
-        } else {
-          console.error("[Supabase] Upload failed:", uploadError);
+          console.log('[Supabase Storage] Image uploaded successfully');
         }
       } catch (uploadErr) {
-        console.error("[Supabase] Combined image upload error:", uploadErr);
+        console.error("[Supabase] Combined image upload failed after retries:", uploadErr);
       }
     }
 
@@ -767,42 +784,49 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
     // Trigger storage event for journal view
     window.dispatchEvent(new Event("storage"));
 
-    // Sync to Supabase (cloud backup) - uses anonymous user_id since no auth
+    // Sync to Supabase (cloud backup) with retry - uses anonymous user_id since no auth
     try {
-      const { error } = await supabase
-        .from("journal_entries")
-        .insert({
-          user_id: '00000000-0000-0000-0000-000000000000',
-          location_title: locationTitle,
-          playlist_name: playlist?.name || "Unknown Playlist",
-          playlist_category_name: playlistCategoryName,
-          spotify_playlist_name: spotifyPlaylistName,
-          category: category,
-          mood_entries: journalEntry.moodEntries,
-          destination_photo: destinationPhoto || null,
-          combined_image_url: combinedImageUrl || null,
-          summary_image: finalImage || null,
-          summary_data: summary || null,
-        });
+      await retryWithBackoff(
+        async () => {
+          const { error } = await supabase
+            .from("journal_entries")
+            .insert({
+              user_id: '00000000-0000-0000-0000-000000000000',
+              location_title: locationTitle,
+              playlist_name: playlist?.name || "Unknown Playlist",
+              playlist_category_name: playlistCategoryName,
+              spotify_playlist_name: spotifyPlaylistName,
+              category: category,
+              mood_entries: journalEntry.moodEntries,
+              destination_photo: destinationPhoto || null,
+              combined_image_url: combinedImageUrl || null,
+              summary_image: finalImage || null,
+              summary_data: summary || null,
+            });
 
-      if (error) {
-        console.warn('[Supabase] Insert warning:', error);
-        toast({
-          title: "Saved locally (cloud pending)",
-          description: "Your journey was saved to your device. Cloud sync will retry."
-        });
-      } else {
-        console.log('[Supabase] Journey inserted successfully');
-        toast({
-          title: "Journey saved!",
-          description: "Synced to cloud and your device"
-        });
-      }
-    } catch (supabaseErr) {
-      console.log('[Supabase] Not configured or unavailable:', supabaseErr);
+          if (error) {
+            throw error;
+          }
+        },
+        {
+          maxRetries: 3,
+          baseDelay: 1000,
+          onRetry: (attempt) => {
+            console.log(`[Supabase DB] Retry attempt ${attempt} for journal insert...`);
+          }
+        }
+      );
+
+      console.log('[Supabase] Journey inserted successfully');
       toast({
-        title: "Saved locally",
-        description: "Cloud sync unavailable, but your journey is safe on your device"
+        title: "Journey saved!",
+        description: "Synced to cloud and your device"
+      });
+    } catch (supabaseErr) {
+      console.warn('[Supabase] Insert failed after retries:', supabaseErr);
+      toast({
+        title: "Saved locally (cloud pending)",
+        description: "Your journey was saved to your device. Cloud sync will retry later."
       });
     }
 
