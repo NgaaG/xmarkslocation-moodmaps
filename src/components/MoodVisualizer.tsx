@@ -785,7 +785,6 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
           summary_data: summary || null,
         });
 
-
       if (error) {
         console.warn('[Supabase] Insert warning:', error);
         toast({
