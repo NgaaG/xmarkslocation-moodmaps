@@ -492,8 +492,8 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                       window.dispatchEvent(new CustomEvent("tutorial-journal-edit"));
                     }}
                   >
-                    <Image className="w-4 h-4 mr-2" />
-                    Photo
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Entry
                   </Button>
                   <Button
                     variant="outline"
