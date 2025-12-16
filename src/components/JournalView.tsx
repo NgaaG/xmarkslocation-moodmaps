@@ -103,6 +103,51 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
   const handleDownloadImage = async (card: JournalCard) => {
     if (!card.summaryImage) return;
 
+    toast({
+      title: "Processing...",
+      description: "Uploading images to cloud storage",
+    });
+
+    let destinationPhotoUrl: string | null = null;
+    let summaryImageUrl: string | null = null;
+    let combinedImageUrl: string | null = null;
+
+    // Helper function to upload base64 image to Supabase storage
+    const uploadBase64ToStorage = async (base64: string, prefix: string): Promise<string | null> => {
+      try {
+        // Convert base64 to blob
+        const response = await fetch(base64);
+        const blob = await response.blob();
+        
+        const fileName = `${prefix}-${card.id}-${Date.now()}.png`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("journey-images")
+          .upload(fileName, blob, { contentType: "image/png", upsert: true });
+
+        if (!uploadError && uploadData) {
+          const { data: urlData } = supabase.storage
+            .from("journey-images")
+            .getPublicUrl(fileName);
+          console.log(`[Supabase] ${prefix} uploaded:`, urlData.publicUrl);
+          return urlData.publicUrl;
+        } else {
+          console.warn(`[Supabase] ${prefix} upload failed:`, uploadError);
+          return null;
+        }
+      } catch (err) {
+        console.warn(`[Supabase] ${prefix} upload error:`, err);
+        return null;
+      }
+    };
+
+    // Upload summary_image to storage
+    summaryImageUrl = await uploadBase64ToStorage(card.summaryImage, "summary");
+
+    // Upload destination_photo to storage (if exists)
+    if (card.destinationPhoto) {
+      destinationPhotoUrl = await uploadBase64ToStorage(card.destinationPhoto, "destination");
+    }
+
     // If there's a destination photo, create a vertical collage
     if (card.destinationPhoto) {
       const canvas = document.createElement("canvas");
@@ -208,8 +253,8 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         canvas.toBlob((b) => resolve(b!), "image/png", 1.0)
       );
 
-      // Upload to Supabase Storage
-      const fileName = `${card.id}-${Date.now()}.png`;
+      // Upload combined image to Supabase Storage
+      const fileName = `combined-${card.id}-${Date.now()}.png`;
       try {
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("journey-images")
@@ -219,19 +264,13 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
           const { data: urlData } = supabase.storage
             .from("journey-images")
             .getPublicUrl(fileName);
-
-          // Update the journal entry with the public URL
-          await supabase
-            .from("journal_entries")
-            .update({ combined_image_url: urlData.publicUrl })
-            .eq("id", card.id);
-
-          console.log("[Supabase] Combined image uploaded:", urlData.publicUrl);
+          combinedImageUrl = urlData.publicUrl;
+          console.log("[Supabase] Combined image uploaded:", combinedImageUrl);
         } else {
-          console.warn("[Supabase] Upload failed:", uploadError);
+          console.warn("[Supabase] Combined upload failed:", uploadError);
         }
       } catch (err) {
-        console.log("[Supabase] Upload unavailable:", err);
+        console.log("[Supabase] Combined upload unavailable:", err);
       }
 
       // Download combined image with maximum quality
@@ -255,6 +294,29 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         title: "Downloaded! 💾",
         description: "Journey saved to your device",
       });
+    }
+
+    // Update database with all image URLs
+    try {
+      const updateData: Record<string, string | null> = {};
+      if (summaryImageUrl) updateData.summary_image = summaryImageUrl;
+      if (destinationPhotoUrl) updateData.destination_photo = destinationPhotoUrl;
+      if (combinedImageUrl) updateData.combined_image_url = combinedImageUrl;
+
+      if (Object.keys(updateData).length > 0) {
+        const { error } = await supabase
+          .from("journal_entries")
+          .update(updateData)
+          .eq("id", card.id);
+
+        if (error) {
+          console.warn("[Supabase] Database update failed:", error);
+        } else {
+          console.log("[Supabase] All image URLs saved to database:", updateData);
+        }
+      }
+    } catch (err) {
+      console.log("[Supabase] Database update unavailable:", err);
     }
   };
 
