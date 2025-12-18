@@ -278,22 +278,36 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         console.log("[Supabase] Combined upload unavailable:", err);
       }
 
-      // Download combined image with maximum quality
-      const link = document.createElement("a");
-      link.href = canvas.toDataURL("image/png", 1.0);
-      link.download = `${card.playlistName || "journey"}-complete.png`;
-      link.click();
+      // 🆕 Download combined image using blob for mobile compatibility
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = blobUrl;
+          link.download = `${card.playlistName || "journey"}-complete.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+        }
+      }, "image/png", 1.0);
 
       toast({
         title: "Downloaded! 💾",
         description: "Complete journey with destination photo saved",
       });
     } else {
-      // Download just the summary image
+      // 🆕 Download summary image using blob for mobile compatibility
+      const response = await fetch(card.summaryImage);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = card.summaryImage;
+      link.href = blobUrl;
       link.download = `${card.playlistName || "journey"}.png`;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
 
       toast({
         title: "Downloaded! 💾",
