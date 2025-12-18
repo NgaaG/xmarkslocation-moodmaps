@@ -30,6 +30,7 @@ export type Database = {
           summary_image: string | null
           updated_at: string
           user_id: string
+          walk_duration_mins: number | null
         }
         Insert: {
           category: string
@@ -46,6 +47,7 @@ export type Database = {
           summary_image?: string | null
           updated_at?: string
           user_id: string
+          walk_duration_mins?: number | null
         }
         Update: {
           category?: string
@@ -62,6 +64,7 @@ export type Database = {
           summary_image?: string | null
           updated_at?: string
           user_id?: string
+          walk_duration_mins?: number | null
         }
         Relationships: []
       }

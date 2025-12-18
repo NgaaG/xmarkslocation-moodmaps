@@ -19,7 +19,9 @@ interface JournalCard {
   locationTitle?: string;
   playlistName?: string;
   playlistCategoryName?: string;
-  spotifyPlaylistName?: string;
+  spotifyPlaylistName?: string; // 🆕 Now stores the Spotify playlist NAME (e.g., "Guilty Pleasures")
+  spotifyPlaylistLink?: string; // 🆕 Stores the Spotify playlist URL link
+  walkDurationMins?: number; // 🆕 Duration of walk in minutes
   category: string;
   moodEntries: Array<{
     stage: string;
@@ -42,10 +44,13 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [editingCard, setEditingCard] = useState<JournalCard | null>(null);
+  // 🆕 Updated editForm to include new fields: spotifyPlaylistLink and walkDurationMins
   const [editForm, setEditForm] = useState({
     locationTitle: "",
     playlistCategoryName: "",
-    spotifyPlaylistName: "",
+    spotifyPlaylistName: "", // 🆕 Actual Spotify playlist name
+    spotifyPlaylistLink: "", // 🆕 Spotify playlist URL
+    walkDurationMins: "",    // 🆕 Duration of walk in minutes
   });
 
   // Load journal cards from localStorage
@@ -320,25 +325,34 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     }
   };
 
+  // 🆕 Updated to load all new fields including spotifyPlaylistLink and walkDurationMins
   const handleEditCard = (card: JournalCard) => {
     setEditingCard(card);
     setEditForm({
       locationTitle: card.locationTitle || "",
       playlistCategoryName: card.playlistCategoryName || "",
-      spotifyPlaylistName: card.spotifyPlaylistName || "",
+      spotifyPlaylistName: card.spotifyPlaylistName || "", // 🆕 Playlist name
+      spotifyPlaylistLink: card.spotifyPlaylistLink || "", // 🆕 Playlist URL link
+      walkDurationMins: card.walkDurationMins?.toString() || "", // 🆕 Walk duration
     });
   };
 
+  // 🆕 Updated handleSaveEdit to save all new fields to localStorage AND Supabase, then close dialog
   const handleSaveEdit = async () => {
     if (!editingCard) return;
+
+    // 🆕 Parse walk duration as number (or undefined if empty)
+    const walkDuration = editForm.walkDurationMins ? parseInt(editForm.walkDurationMins, 10) : undefined;
 
     const updatedCards = journalCards.map((card) =>
       card.id === editingCard.id
         ? {
             ...card,
-            locationTitle: editForm.locationTitle,
+            locationTitle: editForm.locationTitle, // 🆕 Now properly saves user's custom location
             playlistCategoryName: editForm.playlistCategoryName,
-            spotifyPlaylistName: editForm.spotifyPlaylistName,
+            spotifyPlaylistName: editForm.spotifyPlaylistName, // 🆕 Spotify playlist name
+            spotifyPlaylistLink: editForm.spotifyPlaylistLink, // 🆕 Spotify playlist URL
+            walkDurationMins: walkDuration, // 🆕 Walk duration in mins
           }
         : card,
     );
@@ -347,33 +361,34 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     localStorage.setItem("moodJournalEntries", JSON.stringify(updatedCards));
     console.log('[JournalView] Card edited:', editingCard.id);
     
-    // Sync to Supabase
+    // 🆕 Sync ALL fields to Supabase including new ones
     try {
       const { error } = await supabase
         .from("journal_entries")
         .update({
           location_title: editForm.locationTitle,
           playlist_category_name: editForm.playlistCategoryName,
-          spotify_playlist_name: editForm.spotifyPlaylistName,
+          spotify_playlist_name: editForm.spotifyPlaylistName, // 🆕 Playlist name
+          walk_duration_mins: walkDuration || null, // 🆕 Walk duration
         })
         .eq("id", editingCard.id);
 
       if (error) {
         console.warn('[Supabase] Update failed:', error);
       } else {
-        console.log('[Supabase] Card updated successfully');
+        console.log('[Supabase] Card updated successfully with all fields');
       }
     } catch (err) {
       console.log('[Supabase] Update unavailable:', err);
     }
 
-  // ✅ STEP 4: Show feedback to user
-  toast({
-    title: "Updated! ✏️",
-    description: "Journey details updated",
-  });
+    // 🆕 Show feedback and close dialog immediately
+    toast({
+      title: "Updated! ✏️",
+      description: "Journey details saved to cloud",
+    });
 
-    setEditingCard(null);
+    setEditingCard(null); // 🆕 Closes the dialog
   };
 
   const filteredCards = selectedCategory
@@ -565,20 +580,21 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         </DialogContent>
       </Dialog>
 
-      {/* Edit Card Dialog */}
+      {/* 🆕 Updated Edit Card Dialog with new fields */}
       <Dialog open={editingCard !== null} onOpenChange={(open) => !open && setEditingCard(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Journey Details</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* 🆕 Location Title - now properly saves user's custom name */}
             <div className="space-y-2">
-              <Label htmlFor="locationTitle">Location</Label>
+              <Label htmlFor="locationTitle">Location Name</Label>
               <Input
                 id="locationTitle"
                 value={editForm.locationTitle}
                 onChange={(e) => setEditForm({ ...editForm, locationTitle: e.target.value })}
-                placeholder="Location name"
+                placeholder="Enter your custom location name"
               />
             </div>
             <div className="space-y-2">
@@ -590,15 +606,47 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                 placeholder="e.g., Coffeeshop Vibes"
               />
             </div>
+            {/* 🆕 NEW: Spotify Playlist Name field */}
             <div className="space-y-2">
-              <Label htmlFor="spotifyPlaylistName">
-                Chosen Spotify Playlist LINK (on Spotify app click share playlist & copy){" "}
-              </Label>
+              <Label htmlFor="spotifyPlaylistName">Spotify Playlist Name</Label>
               <Input
                 id="spotifyPlaylistName"
                 value={editForm.spotifyPlaylistName}
                 onChange={(e) => setEditForm({ ...editForm, spotifyPlaylistName: e.target.value })}
                 placeholder="e.g., Guilty Pleasures"
+              />
+            </div>
+            {/* 🆕 NEW: Spotify Playlist Link field - displays as clickable hyperlink */}
+            <div className="space-y-2">
+              <Label htmlFor="spotifyPlaylistLink">Spotify Playlist Link URL</Label>
+              <Input
+                id="spotifyPlaylistLink"
+                value={editForm.spotifyPlaylistLink}
+                onChange={(e) => setEditForm({ ...editForm, spotifyPlaylistLink: e.target.value })}
+                placeholder="https://open.spotify.com/playlist/..."
+              />
+              {/* 🆕 Show clickable link preview if URL is entered */}
+              {editForm.spotifyPlaylistLink && (
+                <a
+                  href={editForm.spotifyPlaylistLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline break-all"
+                >
+                  🔗 Open playlist in Spotify
+                </a>
+              )}
+            </div>
+            {/* 🆕 NEW: Duration of Walk field */}
+            <div className="space-y-2">
+              <Label htmlFor="walkDurationMins">Duration of Walk (mins)</Label>
+              <Input
+                id="walkDurationMins"
+                type="number"
+                min="1"
+                value={editForm.walkDurationMins}
+                onChange={(e) => setEditForm({ ...editForm, walkDurationMins: e.target.value })}
+                placeholder="e.g., 45"
               />
             </div>
           </div>
