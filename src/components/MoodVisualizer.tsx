@@ -614,10 +614,13 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
         summaryRef.current.style.backgroundColor = "#fafafa";
         summaryRef.current.style.color = "#111";
 
+        // 🆕 Increased scale for mobile to match laptop quality (3x instead of 2x)
         const canvas = await html2canvas(summaryRef.current, {
           backgroundColor: "#fafafa",
-          scale: 2,
+          scale: 3, // 🆕 Higher scale for clearer mobile screenshots
           logging: false,
+          useCORS: true, // 🆕 Enable CORS for image loading
+          allowTaint: false, // 🆕 Prevent tainted canvas issues
         });
         screenshotData = canvas.toDataURL("image/png");
 

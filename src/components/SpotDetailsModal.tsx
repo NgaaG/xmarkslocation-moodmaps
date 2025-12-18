@@ -60,7 +60,8 @@ const SpotDetailsModal = ({ spot, onClose }: SpotDetailsModalProps) => {
         onClose();
       }
     }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 w-[95vw] sm:w-full">
+      {/* 🆕 Improved mobile responsiveness - reduced max-height to prevent full screen coverage */}
+      <DialogContent className="max-w-2xl max-h-[80vh] sm:max-h-[90vh] overflow-y-auto p-0 w-[92vw] sm:w-full mx-auto rounded-xl">
         {/* Header Image */}
         <div className="relative h-40 sm:h-48 w-full">
           <img 

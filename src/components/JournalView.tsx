@@ -221,9 +221,9 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       const destY = summaryY + summaryHeight + gap;
       ctx.drawImage(destImg, destX, destY, destWidth, destHeight);
 
-      // Add metadata text overlay at the bottom
+      // 🆕 Add metadata text overlay at the bottom - expanded to fit all entry details
       const textPadding = 20;
-      const textHeight = 100;
+      const textHeight = 180; // 🆕 Increased from 100 to 180 to fit all 5 lines
       const textY = canvasLogicalHeight - textHeight - padding;
 
       // Semi-transparent background for text
@@ -235,22 +235,37 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
 
-      // Location title (larger font)
+      // 🆕 Line 1: Location title (larger font)
       ctx.font = "bold 28px Inter, system-ui, sans-serif";
       ctx.fillText(card.locationTitle || "Unknown Location", padding + textPadding, textY + textPadding);
 
-      // Playlist category (medium font)
+      // 🆕 Line 2: Playlist category (medium font)
       ctx.font = "20px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#DDDDDD";
       ctx.fillText(card.playlistCategoryName || card.category, padding + textPadding, textY + textPadding + 36);
 
-      // Spotify playlist name (medium font, italic)
+      // 🆕 Line 3: Spotify playlist name (medium font, italic)
       ctx.font = "italic 18px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#CCCCCC";
       ctx.fillText(
-        (card.spotifyPlaylistName || "No playlist") + " - Spotify",
+        "Spotify: " + (card.spotifyPlaylistName || "No playlist"),
         padding + textPadding,
         textY + textPadding + 64,
+      );
+
+      // 🆕 Line 4: Spotify playlist link (smaller font)
+      ctx.font = "16px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "#AAAAAA";
+      const linkText = card.spotifyPlaylistLink ? card.spotifyPlaylistLink : "No link provided";
+      ctx.fillText(linkText.length > 50 ? linkText.substring(0, 50) + "..." : linkText, padding + textPadding, textY + textPadding + 92);
+
+      // 🆕 Line 5: Duration of walk
+      ctx.font = "18px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "#BBBBBB";
+      ctx.fillText(
+        "Duration: " + (card.walkDurationMins ? card.walkDurationMins + " mins" : "Not recorded"),
+        padding + textPadding,
+        textY + textPadding + 120,
       );
 
       // Convert canvas to blob for upload

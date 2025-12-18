@@ -253,3 +253,30 @@ All colors MUST be HSL.
 .leaflet-control-zoom a:last-child {
   border-bottom: none !important;
 }
+
+/* 🆕 Mobile responsiveness improvements */
+@media (max-width: 640px) {
+  /* Improve base text sizing on mobile */
+  html {
+    font-size: 16px;
+  }
+
+  /* Ensure dialogs don't cover entire screen */
+  .dialog-content-mobile {
+    max-height: 85vh !important;
+    margin: 1rem;
+  }
+
+  /* Better touch targets on mobile */
+  button, 
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Improved spacing for mobile modals */
+  [role="dialog"] {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+}
