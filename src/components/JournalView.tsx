@@ -104,7 +104,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
   };
 
   // -------------------------------
-  // DOWNLOAD: restore original look
+  // DOWNLOAD: original look kept
   // -------------------------------
   const handleDownloadImage = async (card: JournalCard) => {
     if (!card.summaryImage) return;
@@ -129,10 +129,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         }),
       ]);
 
-      // Layout chosen to match original exports:
-      // - Summary card at top.
-      // - Full-width destination photo below.
-      // - Single metadata block at very bottom (location, category, Spotify line).
       const maxWidth = 1200;
       const padding = 60;
       const gap = 40;
@@ -147,7 +143,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
       const scale = Math.min(window.devicePixelRatio || 2, 3);
 
-      // Metadata bar height similar to original (around 100px at 1x)
       const textBarHeight = 100;
 
       const canvasLogicalWidth = summaryWidth + padding * 2;
@@ -173,7 +168,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       const destY = summaryY + summaryHeight + gap;
       ctx.drawImage(destImg, destX, destY, destWidth, destHeight);
 
-      // Metadata bar at very bottom, like original "Cafe / Coffeeshop Vibes / link - Spotify"
       const barY = canvasLogicalHeight - textBarHeight;
       ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
       ctx.fillRect(0, barY, canvasLogicalWidth, textBarHeight);
@@ -182,7 +176,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       ctx.textBaseline = "top";
       ctx.fillStyle = "#FFFFFF";
 
-      // Line 1: Location
       ctx.font = "bold 28px Inter, system-ui, sans-serif";
       ctx.fillText(
         card.locationTitle || "Unknown Location",
@@ -190,7 +183,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         barY + 16,
       );
 
-      // Line 2: Playlist category
       ctx.font = "20px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#DDDDDD";
       ctx.fillText(
@@ -199,7 +191,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         barY + 16 + 30,
       );
 
-      // Line 3: Spotify link line (playlist name + " - Spotify")
       ctx.font = "18px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#CCCCCC";
       const spotifyLabel =
@@ -208,7 +199,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
           : card.spotifyPlaylistName || "") + " - Spotify";
       ctx.fillText(spotifyLabel, padding, barY + 16 + 58);
 
-      // Immediate download
+      // Immediate download (works on desktop + mobile)
       const link = document.createElement("a");
       link.href = canvas.toDataURL("image/png", 1.0);
       link.download = `${card.playlistName || "journey"}-complete.png`;
@@ -217,7 +208,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       // Background upload + DB sync
       void uploadAndSyncImages(card, canvas.toDataURL("image/png", 1.0));
     } else {
-      // Summary-only image (as before)
+      // Summary-only image
       const link = document.createElement("a");
       link.href = card.summaryImage;
       link.download = `${card.playlistName || "journey"}.png`;
@@ -232,7 +223,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     });
   };
 
-  // Background upload helper
+  // Background upload helper (now updates journal_entries + mood_journeys)
   const uploadAndSyncImages = async (card: JournalCard, combinedDataUrl: string | null) => {
     try {
       toast({
@@ -287,7 +278,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
       const updateData: Record<string, string | null> = {};
       if (summaryImageUrl) updateData.summary_image = summaryImageUrl;
-      if (destinationPhotoUrl) updateData.destination_image_url = destinationPhotoUrl;
+      if (destinationPhotoUrl) updateData.destination_image_url = destinationPhotoUrl; // key fixed
       if (combinedImageUrl) updateData.combined_image_url = combinedImageUrl;
 
       if (Object.keys(updateData).length > 0) {
@@ -301,7 +292,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
           console.warn("[Supabase] journal_entries update failed:", journalError);
         }
 
-        // mood_journeys mirror
+        // mood_journeys mirror (images only)
         const { error: journeysError } = await supabase
           .from("mood_journeys")
           .upsert(
@@ -365,6 +356,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     console.log("[JournalView] Card edited:", editingCard.id);
 
     try {
+      // journal_entries
       const { error: journalError } = await supabase
         .from("journal_entries")
         .update({
@@ -382,6 +374,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         console.log("[Supabase] journal_entries updated successfully");
       }
 
+      // mood_journeys mirror (full row)
       const { error: journeysError } = await supabase.from("mood_journeys").upsert(
         {
           id: editingCard.id,
