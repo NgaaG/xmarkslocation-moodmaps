@@ -20,8 +20,8 @@ interface JournalCard {
   playlistName?: string;
   playlistCategoryName?: string;
   spotifyPlaylistName?: string;
-  spotifyPlaylistLink?: string; // 🆕 URL
-  walkDurationMins?: number;    // 🆕 minutes
+  spotifyPlaylistLink?: string;
+  walkDurationMins?: number;
   category: string;
   moodEntries: Array<{
     stage: string;
@@ -53,7 +53,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     walkDurationMins: "",
   });
 
-  // ---- Load / sync from localStorage ----
+  // Load journal cards from localStorage
   useEffect(() => {
     const loadJournalCards = () => {
       const entries = JSON.parse(localStorage.getItem("moodJournalEntries") || "[]");
@@ -70,7 +70,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // ---- Photo upload (unchanged) ----
+  // Photo upload
   const handlePhotoUpload = (cardId: string, useCamera: boolean = false) => {
     const input = document.createElement("input");
     input.type = "file";
@@ -103,16 +103,14 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     input.click();
   };
 
-  // --------------------------------------------------
-  // DOWNLOAD: restore original behaviour (immediate download),
-  // then do Supabase uploads + mood_journeys sync in background.
-  // --------------------------------------------------
+  // -------------------------------
+  // DOWNLOAD: restore original look
+  // -------------------------------
   const handleDownloadImage = async (card: JournalCard) => {
     if (!card.summaryImage) return;
 
-    // 1) Immediate download to user's device (as before)
+    // If destination photo exists, create collage image like before
     if (card.destinationPhoto) {
-      // Combined image: create canvas, draw, and download synchronously
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
@@ -131,6 +129,10 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         }),
       ]);
 
+      // Layout chosen to match original exports:
+      // - Summary card at top.
+      // - Full-width destination photo below.
+      // - Single metadata block at very bottom (location, category, Spotify line).
       const maxWidth = 1200;
       const padding = 60;
       const gap = 40;
@@ -145,8 +147,12 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
       const scale = Math.min(window.devicePixelRatio || 2, 3);
 
+      // Metadata bar height similar to original (around 100px at 1x)
+      const textBarHeight = 100;
+
       const canvasLogicalWidth = summaryWidth + padding * 2;
-      const canvasLogicalHeight = summaryHeight + destHeight + gap + padding * 2;
+      const canvasLogicalHeight =
+        summaryHeight + destHeight + gap + padding * 2 + textBarHeight;
 
       canvas.width = canvasLogicalWidth * scale;
       canvas.height = canvasLogicalHeight * scale;
@@ -167,95 +173,66 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       const destY = summaryY + summaryHeight + gap;
       ctx.drawImage(destImg, destX, destY, destWidth, destHeight);
 
-      // Expanded metadata block at bottom (unchanged from previous version)
-      const textPadding = 20;
-      const textHeight = 180;
-      const textY = canvasLogicalHeight - textHeight - padding;
-
+      // Metadata bar at very bottom, like original "Cafe / Coffeeshop Vibes / link - Spotify"
+      const barY = canvasLogicalHeight - textBarHeight;
       ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-      ctx.fillRect(padding, textY, summaryWidth, textHeight);
+      ctx.fillRect(0, barY, canvasLogicalWidth, textBarHeight);
 
-      ctx.fillStyle = "#FFFFFF";
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
+      ctx.fillStyle = "#FFFFFF";
 
+      // Line 1: Location
       ctx.font = "bold 28px Inter, system-ui, sans-serif";
       ctx.fillText(
         card.locationTitle || "Unknown Location",
-        padding + textPadding,
-        textY + textPadding,
+        padding,
+        barY + 16,
       );
 
+      // Line 2: Playlist category
       ctx.font = "20px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#DDDDDD";
       ctx.fillText(
         card.playlistCategoryName || card.category,
-        padding + textPadding,
-        textY + textPadding + 36,
+        padding,
+        barY + 16 + 30,
       );
 
-      ctx.font = "italic 18px Inter, system-ui, sans-serif";
-      ctx.fillStyle = "#CCCCCC";
-      ctx.fillText(
-        "Spotify: " + (card.spotifyPlaylistName || "No playlist"),
-        padding + textPadding,
-        textY + textPadding + 64,
-      );
-
-      ctx.font = "16px Inter, system-ui, sans-serif";
-      ctx.fillStyle = "#AAAAAA";
-      const linkText =
-        card.spotifyPlaylistLink && card.spotifyPlaylistLink.length > 0
-          ? card.spotifyPlaylistLink
-          : "No link provided";
-      ctx.fillText(
-        linkText.length > 50 ? linkText.substring(0, 50) + "..." : linkText,
-        padding + textPadding,
-        textY + textPadding + 92,
-      );
-
+      // Line 3: Spotify link line (playlist name + " - Spotify")
       ctx.font = "18px Inter, system-ui, sans-serif";
-      ctx.fillStyle = "#BBBBBB";
-      ctx.fillText(
-        "Duration: " +
-          (card.walkDurationMins ? `${card.walkDurationMins} mins` : "Not recorded"),
-        padding + textPadding,
-        textY + textPadding + 120,
-      );
+      ctx.fillStyle = "#CCCCCC";
+      const spotifyLabel =
+        (card.spotifyPlaylistLink && card.spotifyPlaylistLink.length > 0
+          ? card.spotifyPlaylistLink
+          : card.spotifyPlaylistName || "") + " - Spotify";
+      ctx.fillText(spotifyLabel, padding, barY + 16 + 58);
 
-      // Immediate download (no await between click and gesture)
+      // Immediate download
       const link = document.createElement("a");
       link.href = canvas.toDataURL("image/png", 1.0);
       link.download = `${card.playlistName || "journey"}-complete.png`;
       link.click();
 
-      toast({
-        title: "Downloaded! 💾",
-        description: "Complete journey with destination photo saved",
-      });
-
-      // 2) Background uploads + DB sync (do NOT block download)
+      // Background upload + DB sync
       void uploadAndSyncImages(card, canvas.toDataURL("image/png", 1.0));
     } else {
-      // summary-only image
+      // Summary-only image (as before)
       const link = document.createElement("a");
       link.href = card.summaryImage;
       link.download = `${card.playlistName || "journey"}.png`;
       link.click();
 
-      toast({
-        title: "Downloaded! 💾",
-        description: "Journey saved to your device",
-      });
-
-      // 2) Background uploads + DB sync
       void uploadAndSyncImages(card, null);
     }
+
+    toast({
+      title: "Downloaded! 💾",
+      description: "Journey saved to your device",
+    });
   };
 
-  // --------------------------------------------------
-  // Background upload + Supabase sync helper
-  // --------------------------------------------------
+  // Background upload helper
   const uploadAndSyncImages = async (card: JournalCard, combinedDataUrl: string | null) => {
     try {
       toast({
@@ -296,17 +273,14 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         }
       };
 
-      // summary
       if (card.summaryImage) {
         summaryImageUrl = await uploadBase64ToStorage(card.summaryImage, "summary");
       }
 
-      // destination
       if (card.destinationPhoto) {
         destinationPhotoUrl = await uploadBase64ToStorage(card.destinationPhoto, "destination");
       }
 
-      // combined: if we already have data URL, upload it
       if (combinedDataUrl) {
         combinedImageUrl = await uploadBase64ToStorage(combinedDataUrl, "combined");
       }
@@ -351,7 +325,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     }
   };
 
-  // ---- Edit dialog handlers ----
+  // Edit dialog open
   const handleEditCard = (card: JournalCard) => {
     setEditingCard(card);
     setEditForm({
@@ -364,6 +338,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     });
   };
 
+  // Save edits (journal_entries + mood_journeys)
   const handleSaveEdit = async () => {
     if (!editingCard) return;
 
@@ -444,14 +419,16 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     ? journalCards.filter((card) => card.category === selectedCategory)
     : journalCards;
 
-  // ---- JSX (unchanged layout) ----
   return (
     <div className="h-full w-full overflow-y-auto">
+      {/* Filter Bar */}
       <div className="sticky top-0 z-20">
         <FilterBar selectedCategory={selectedCategory} onCategoryChange={onCategoryChange} />
       </div>
 
+      {/* Journal Grid */}
       <div className="container mx-auto p-4 md:p-6">
+        {/* Add Card Button */}
         <div className="mb-6">
           <Button className="rounded-lg px-6 py-3 min-h-[44px]">
             <Plus className="w-5 h-5 mr-2" />
@@ -459,12 +436,14 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
           </Button>
         </div>
 
+        {/* Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {filteredCards.map((card) => (
             <Card
               key={card.id}
               className="group overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-200"
             >
+              {/* Card Image */}
               <div className="relative aspect-video overflow-hidden bg-muted">
                 {card.summaryImage ? (
                   <img
@@ -483,6 +462,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
 
+              {/* Card Content */}
               <div className="p-4 space-y-3">
                 <div className="space-y-1 relative">
                   <Button
@@ -508,6 +488,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                     </p>
                   )}
 
+                  {/* Mood Entries Summary */}
                   <div className="space-y-1 pt-2">
                     {card.moodEntries.map((entry, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-xs">
@@ -517,6 +498,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                     ))}
                   </div>
 
+                  {/* Destination Photo Gallery */}
                   {card.destinationPhoto && (
                     <div className="pt-2 border-t border-border">
                       <p className="text-xs font-medium text-muted-foreground mb-2">
@@ -544,6 +526,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                   </p>
                 </div>
 
+                {/* Card Actions */}
                 <div className="flex gap-2 pt-2">
                   <Button
                     variant="outline"
@@ -587,19 +570,20 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         </div>
       </div>
 
+      {/* Image Viewer Dialog */}
       <Dialog
         open={selectedImage !== null}
         onOpenChange={(open) => !open && setSelectedImage(null)}
       >
-        <DialogContent className="max-w-4xl p-0" aria-describedby="image-viewer-description">
+        <DialogContent className="max-w-4xl p-0 md:max-h-[90vh] overflow-hidden">
           <DialogHeader className="sr-only">
             <DialogTitle>View Journey Image</DialogTitle>
           </DialogHeader>
-          <div className="relative">
+          <div className="relative max-h-[90vh] overflow-auto">
             {selectedImage && (
               <>
                 <img src={selectedImage} alt="Journey summary" className="w-full h-auto" />
-                <div className="absolute bottom-4 right-4">
+                <div className="sticky bottom-0 right-0 flex justify-end p-4 bg-gradient-to-t from-background/95 via-background/70 to-transparent">
                   <Button
                     onClick={() => {
                       const card = journalCards.find((c) => c.id === selectedCardId);
@@ -619,12 +603,13 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         </DialogContent>
       </Dialog>
 
+      {/* Edit Card Dialog - responsive, scrollable so Save button is always visible */}
       <Dialog open={editingCard !== null} onOpenChange={(open) => !open && setEditingCard(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Journey Details</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="locationTitle">Location</Label>
               <Input
@@ -653,7 +638,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                 onChange={(e) =>
                   setEditForm({ ...editForm, spotifyPlaylistName: e.target.value })
                 }
-                placeholder="e.g., Guilty Pleasures"
+                placeholder="e.g., Peaceful Piano"
               />
             </div>
             <div className="space-y-2">
@@ -681,7 +666,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
               />
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 pt-2 sticky bottom-0 bg-background">
             <Button variant="outline" className="flex-1" onClick={() => setEditingCard(null)}>
               Cancel
             </Button>
