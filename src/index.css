@@ -254,29 +254,48 @@ All colors MUST be HSL.
   border-bottom: none !important;
 }
 
-/* 🆕 Mobile responsiveness improvements */
+/* 🆕 Mobile-only responsiveness improvements - scoped to prevent affecting desktop */
 @media (max-width: 640px) {
-  /* Improve base text sizing on mobile */
+  /* 🆕 Mobile: Improve base text sizing */
   html {
     font-size: 16px;
   }
 
-  /* Ensure dialogs don't cover entire screen */
+  /* 🆕 Mobile: Ensure dialogs don't cover entire screen */
   .dialog-content-mobile {
     max-height: 85vh !important;
     margin: 1rem;
   }
 
-  /* Better touch targets on mobile */
+  /* 🆕 Mobile: Better touch targets */
   button, 
   [role="button"] {
     min-height: 44px;
     min-width: 44px;
   }
 
-  /* Improved spacing for mobile modals */
+  /* 🆕 Mobile: Improved spacing for modals */
   [role="dialog"] {
     max-height: 90vh;
     overflow-y: auto;
+  }
+}
+
+/* 🆕 Desktop responsiveness - ensure proper scaling on larger screens */
+@media (min-width: 641px) {
+  html {
+    font-size: 16px; /* 🆕 Restore standard desktop font size */
+  }
+  
+  /* 🆕 Desktop: Reset button sizes to normal */
+  button, 
+  [role="button"] {
+    min-height: auto;
+    min-width: auto;
+  }
+  
+  /* 🆕 Desktop: Standard dialog sizing */
+  [role="dialog"] {
+    max-height: 90vh;
   }
 }
