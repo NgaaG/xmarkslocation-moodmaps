@@ -614,13 +614,14 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
         summaryRef.current.style.backgroundColor = "#fafafa";
         summaryRef.current.style.color = "#111";
 
-        // 🆕 Increased scale for mobile to match laptop quality (3x instead of 2x)
+        // 🆕 Device-aware scale: 3x for mobile (clearer), 2x for desktop (original quality)
+        const isMobile = window.innerWidth <= 640;
         const canvas = await html2canvas(summaryRef.current, {
           backgroundColor: "#fafafa",
-          scale: 3, // 🆕 Higher scale for clearer mobile screenshots
+          scale: isMobile ? 3 : 2, // 🆕 Higher scale for mobile, original 2x for desktop
           logging: false,
-          useCORS: true, // 🆕 Enable CORS for image loading
-          allowTaint: false, // 🆕 Prevent tainted canvas issues
+          useCORS: true,
+          allowTaint: false,
         });
         screenshotData = canvas.toDataURL("image/png");
 
