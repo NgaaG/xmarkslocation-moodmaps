@@ -19,9 +19,9 @@ interface JournalCard {
   locationTitle?: string;
   playlistName?: string;
   playlistCategoryName?: string;
-  spotifyPlaylistName?: string; // 🆕 Spotify playlist NAME (e.g., "Guilty Pleasures")
-  spotifyPlaylistLink?: string; // 🆕 Spotify playlist URL
-  walkDurationMins?: number;    // 🆕 Duration of walk in minutes
+  spotifyPlaylistName?: string;
+  spotifyPlaylistLink?: string; // 🆕 URL
+  walkDurationMins?: number;    // 🆕 minutes
   category: string;
   moodEntries: Array<{
     stage: string;
@@ -45,7 +45,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [editingCard, setEditingCard] = useState<JournalCard | null>(null);
 
-  // 🆕 edit form now includes spotifyPlaylistLink + walkDurationMins
   const [editForm, setEditForm] = useState({
     locationTitle: "",
     playlistCategoryName: "",
@@ -54,7 +53,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     walkDurationMins: "",
   });
 
-  // Load journal cards from localStorage
+  // ---- Load / sync from localStorage ----
   useEffect(() => {
     const loadJournalCards = () => {
       const entries = JSON.parse(localStorage.getItem("moodJournalEntries") || "[]");
@@ -63,7 +62,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
     loadJournalCards();
 
-    // Listen for new journal entries
     const handleStorageChange = () => {
       loadJournalCards();
     };
@@ -72,6 +70,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
+  // ---- Photo upload (unchanged) ----
   const handlePhotoUpload = (cardId: string, useCamera: boolean = false) => {
     const input = document.createElement("input");
     input.type = "file";
@@ -104,58 +103,16 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     input.click();
   };
 
+  // --------------------------------------------------
+  // DOWNLOAD: restore original behaviour (immediate download),
+  // then do Supabase uploads + mood_journeys sync in background.
+  // --------------------------------------------------
   const handleDownloadImage = async (card: JournalCard) => {
     if (!card.summaryImage) return;
 
-    toast({
-      title: "Processing...",
-      description: "Uploading images to cloud storage",
-    });
-
-    let destinationPhotoUrl: string | null = null;
-    let summaryImageUrl: string | null = null;
-    let combinedImageUrl: string | null = null;
-
-    // Helper function to upload base64 image to Supabase storage
-    const uploadBase64ToStorage = async (
-      base64: string,
-      prefix: string,
-    ): Promise<string | null> => {
-      try {
-        const response = await fetch(base64);
-        const blob = await response.blob();
-
-        const fileName = `${prefix}-${card.id}-${Date.now()}.png`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("journey-images")
-          .upload(fileName, blob, { contentType: "image/png", upsert: true });
-
-        if (!uploadError && uploadData) {
-          const { data: urlData } = supabase.storage
-            .from("journey-images")
-            .getPublicUrl(fileName);
-          console.log(`[Supabase] ${prefix} uploaded:`, urlData.publicUrl);
-          return urlData.publicUrl;
-        } else {
-          console.warn(`[Supabase] ${prefix} upload failed:`, uploadError);
-          return null;
-        }
-      } catch (err) {
-        console.warn(`[Supabase] ${prefix} upload error:`, err);
-        return null;
-      }
-    };
-
-    // Upload summary_image to storage
-    summaryImageUrl = await uploadBase64ToStorage(card.summaryImage, "summary");
-
-    // Upload destination_photo to storage (if exists)
+    // 1) Immediate download to user's device (as before)
     if (card.destinationPhoto) {
-      destinationPhotoUrl = await uploadBase64ToStorage(card.destinationPhoto, "destination");
-    }
-
-    // If there's a destination photo, create vertical collage
-    if (card.destinationPhoto) {
+      // Combined image: create canvas, draw, and download synchronously
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
@@ -210,9 +167,9 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       const destY = summaryY + summaryHeight + gap;
       ctx.drawImage(destImg, destX, destY, destWidth, destHeight);
 
-      // 🆕 Expanded metadata block for 5 lines
+      // Expanded metadata block at bottom (unchanged from previous version)
       const textPadding = 20;
-      const textHeight = 180; // 🆕 was 100
+      const textHeight = 180;
       const textY = canvasLogicalHeight - textHeight - padding;
 
       ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
@@ -222,7 +179,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
 
-      // 🆕 line 1: location title
       ctx.font = "bold 28px Inter, system-ui, sans-serif";
       ctx.fillText(
         card.locationTitle || "Unknown Location",
@@ -230,7 +186,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         textY + textPadding,
       );
 
-      // 🆕 line 2: playlist category
       ctx.font = "20px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#DDDDDD";
       ctx.fillText(
@@ -239,7 +194,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         textY + textPadding + 36,
       );
 
-      // 🆕 line 3: Spotify playlist name
       ctx.font = "italic 18px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#CCCCCC";
       ctx.fillText(
@@ -248,7 +202,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         textY + textPadding + 64,
       );
 
-      // 🆕 line 4: Spotify playlist link (truncated)
       ctx.font = "16px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#AAAAAA";
       const linkText =
@@ -261,7 +214,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         textY + textPadding + 92,
       );
 
-      // 🆕 line 5: walk duration
       ctx.font = "18px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#BBBBBB";
       ctx.fillText(
@@ -271,29 +223,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         textY + textPadding + 120,
       );
 
-      const blob = await new Promise<Blob>((resolve) =>
-        canvas.toBlob((b) => resolve(b!), "image/png", 1.0),
-      );
-
-      const fileName = `combined-${card.id}-${Date.now()}.png`;
-      try {
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("journey-images")
-          .upload(fileName, blob, { contentType: "image/png", upsert: true });
-
-        if (!uploadError && uploadData) {
-          const { data: urlData } = supabase.storage
-            .from("journey-images")
-            .getPublicUrl(fileName);
-          combinedImageUrl = urlData.publicUrl;
-          console.log("[Supabase] Combined image uploaded:", combinedImageUrl);
-        } else {
-          console.warn("[Supabase] Combined upload failed:", uploadError);
-        }
-      } catch (err) {
-        console.log("[Supabase] Combined upload unavailable:", err);
-      }
-
+      // Immediate download (no await between click and gesture)
       const link = document.createElement("a");
       link.href = canvas.toDataURL("image/png", 1.0);
       link.download = `${card.playlistName || "journey"}-complete.png`;
@@ -303,7 +233,11 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         title: "Downloaded! 💾",
         description: "Complete journey with destination photo saved",
       });
+
+      // 2) Background uploads + DB sync (do NOT block download)
+      void uploadAndSyncImages(card, canvas.toDataURL("image/png", 1.0));
     } else {
+      // summary-only image
       const link = document.createElement("a");
       link.href = card.summaryImage;
       link.download = `${card.playlistName || "journey"}.png`;
@@ -313,17 +247,77 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         title: "Downloaded! 💾",
         description: "Journey saved to your device",
       });
-    }
 
-    // 🆕 Update database with all image URLs in BOTH tables
+      // 2) Background uploads + DB sync
+      void uploadAndSyncImages(card, null);
+    }
+  };
+
+  // --------------------------------------------------
+  // Background upload + Supabase sync helper
+  // --------------------------------------------------
+  const uploadAndSyncImages = async (card: JournalCard, combinedDataUrl: string | null) => {
     try {
+      toast({
+        title: "Processing...",
+        description: "Uploading images to cloud storage",
+      });
+
+      let destinationPhotoUrl: string | null = null;
+      let summaryImageUrl: string | null = null;
+      let combinedImageUrl: string | null = null;
+
+      const uploadBase64ToStorage = async (
+        base64: string,
+        prefix: string,
+      ): Promise<string | null> => {
+        try {
+          const response = await fetch(base64);
+          const blob = await response.blob();
+
+          const fileName = `${prefix}-${card.id}-${Date.now()}.png`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from("journey-images")
+            .upload(fileName, blob, { contentType: "image/png", upsert: true });
+
+          if (!uploadError && uploadData) {
+            const { data: urlData } = supabase.storage
+              .from("journey-images")
+              .getPublicUrl(fileName);
+            console.log(`[Supabase] ${prefix} uploaded:`, urlData.publicUrl);
+            return urlData.publicUrl;
+          } else {
+            console.warn(`[Supabase] ${prefix} upload failed:`, uploadError);
+            return null;
+          }
+        } catch (err) {
+          console.warn(`[Supabase] ${prefix} upload error:`, err);
+          return null;
+        }
+      };
+
+      // summary
+      if (card.summaryImage) {
+        summaryImageUrl = await uploadBase64ToStorage(card.summaryImage, "summary");
+      }
+
+      // destination
+      if (card.destinationPhoto) {
+        destinationPhotoUrl = await uploadBase64ToStorage(card.destinationPhoto, "destination");
+      }
+
+      // combined: if we already have data URL, upload it
+      if (combinedDataUrl) {
+        combinedImageUrl = await uploadBase64ToStorage(combinedDataUrl, "combined");
+      }
+
       const updateData: Record<string, string | null> = {};
       if (summaryImageUrl) updateData.summary_image = summaryImageUrl;
       if (destinationPhotoUrl) updateData.destination_image_url = destinationPhotoUrl;
       if (combinedImageUrl) updateData.combined_image_url = combinedImageUrl;
 
       if (Object.keys(updateData).length > 0) {
-        // journal_entries (existing)
+        // journal_entries
         const { error: journalError } = await supabase
           .from("journal_entries")
           .update(updateData)
@@ -333,7 +327,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
           console.warn("[Supabase] journal_entries update failed:", journalError);
         }
 
-        // 🆕 mirror into mood_journeys for live map
+        // mood_journeys mirror
         const { error: journeysError } = await supabase
           .from("mood_journeys")
           .upsert(
@@ -343,7 +337,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
               destination_image_url: destinationPhotoUrl,
               combined_image_url: combinedImageUrl,
             },
-            { onConflict: "id" }, // 🆕 update existing row
+            { onConflict: "id" },
           );
 
         if (journeysError) {
@@ -353,17 +347,18 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         }
       }
     } catch (err) {
-      console.log("[Supabase] Database update unavailable:", err);
+      console.log("[Supabase] uploadAndSyncImages error:", err);
     }
   };
 
+  // ---- Edit dialog handlers ----
   const handleEditCard = (card: JournalCard) => {
     setEditingCard(card);
     setEditForm({
       locationTitle: card.locationTitle || "",
       playlistCategoryName: card.playlistCategoryName || "",
       spotifyPlaylistName: card.spotifyPlaylistName || "",
-      spotifyPlaylistLink: card.spotifyPlaylistLink || "", // 🆕 prefill
+      spotifyPlaylistLink: card.spotifyPlaylistLink || "",
       walkDurationMins:
         typeof card.walkDurationMins === "number" ? String(card.walkDurationMins) : "",
     });
@@ -384,8 +379,8 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
             locationTitle: editForm.locationTitle,
             playlistCategoryName: editForm.playlistCategoryName,
             spotifyPlaylistName: editForm.spotifyPlaylistName,
-            spotifyPlaylistLink: editForm.spotifyPlaylistLink, // 🆕
-            walkDurationMins: walkDurationNumber ?? undefined, // 🆕
+            spotifyPlaylistLink: editForm.spotifyPlaylistLink,
+            walkDurationMins: walkDurationNumber ?? undefined,
           }
         : card,
     );
@@ -395,15 +390,14 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     console.log("[JournalView] Card edited:", editingCard.id);
 
     try {
-      // Existing: update journal_entries
       const { error: journalError } = await supabase
         .from("journal_entries")
         .update({
           location_title: editForm.locationTitle,
           playlist_category_name: editForm.playlistCategoryName,
           spotify_playlist_name: editForm.spotifyPlaylistName,
-          spotify_playlist_link: editForm.spotifyPlaylistLink, // 🆕
-          walk_duration_mins: walkDurationNumber,              // 🆕
+          spotify_playlist_link: editForm.spotifyPlaylistLink,
+          walk_duration_mins: walkDurationNumber,
         })
         .eq("id", editingCard.id);
 
@@ -413,7 +407,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         console.log("[Supabase] journal_entries updated successfully");
       }
 
-      // 🆕 New: upsert into mood_journeys for live map
       const { error: journeysError } = await supabase.from("mood_journeys").upsert(
         {
           id: editingCard.id,
@@ -451,16 +444,14 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     ? journalCards.filter((card) => card.category === selectedCategory)
     : journalCards;
 
+  // ---- JSX (unchanged layout) ----
   return (
     <div className="h-full w-full overflow-y-auto">
-      {/* Filter Bar */}
       <div className="sticky top-0 z-20">
         <FilterBar selectedCategory={selectedCategory} onCategoryChange={onCategoryChange} />
       </div>
 
-      {/* Journal Grid */}
       <div className="container mx-auto p-4 md:p-6">
-        {/* Add Card Button */}
         <div className="mb-6">
           <Button className="rounded-lg px-6 py-3 min-h-[44px]">
             <Plus className="w-5 h-5 mr-2" />
@@ -468,14 +459,12 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
           </Button>
         </div>
 
-        {/* Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {filteredCards.map((card) => (
             <Card
               key={card.id}
               className="group overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-200"
             >
-              {/* Card Image */}
               <div className="relative aspect-video overflow-hidden bg-muted">
                 {card.summaryImage ? (
                   <img
@@ -494,7 +483,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
 
-              {/* Card Content */}
               <div className="p-4 space-y-3">
                 <div className="space-y-1 relative">
                   <Button
@@ -520,7 +508,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                     </p>
                   )}
 
-                  {/* Mood Entries Summary */}
                   <div className="space-y-1 pt-2">
                     {card.moodEntries.map((entry, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-xs">
@@ -530,7 +517,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                     ))}
                   </div>
 
-                  {/* Destination Photo Gallery */}
                   {card.destinationPhoto && (
                     <div className="pt-2 border-t border-border">
                       <p className="text-xs font-medium text-muted-foreground mb-2">
@@ -558,7 +544,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                   </p>
                 </div>
 
-                {/* Card Actions */}
                 <div className="flex gap-2 pt-2">
                   <Button
                     variant="outline"
@@ -599,23 +584,9 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
               </div>
             </Card>
           ))}
-
-          {/* Empty placeholder cards */}
-          {[...Array(Math.max(1, 6 - filteredCards.length))].map((_, i) => (
-            <Card
-              key={`placeholder-${i}`}
-              className="border-2 border-dashed border-border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer min-h-[300px] flex items-center justify-center"
-            >
-              <div className="text-center space-y-2 p-6">
-                <Plus className="w-12 h-12 mx-auto text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Create a new journal card</p>
-              </div>
-            </Card>
-          ))}
         </div>
       </div>
 
-      {/* Image Viewer Dialog */}
       <Dialog
         open={selectedImage !== null}
         onOpenChange={(open) => !open && setSelectedImage(null)}
@@ -633,7 +604,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                     onClick={() => {
                       const card = journalCards.find((c) => c.id === selectedCardId);
                       if (card) {
-                        handleDownloadImage(card);
+                        void handleDownloadImage(card);
                       }
                     }}
                     className="gap-2"
@@ -648,7 +619,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         </DialogContent>
       </Dialog>
 
-      {/* Edit Card Dialog */}
       <Dialog open={editingCard !== null} onOpenChange={(open) => !open && setEditingCard(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
