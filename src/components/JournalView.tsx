@@ -383,8 +383,15 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         })
         .eq("id", editingCard.id);
 
-      if (journalError) {
-        console.warn("[Supabase] journal_entries update failed:", journalError);
+     if (journalError) {
+  console.warn(
+    "[Supabase] journal_entries update failed:",
+    journalError.message,
+    journalError.code,
+    journalError.details
+  );
+}
+
       } else {
         console.log("[Supabase] journal_entries updated successfully for id:", editingCard.id);
         savedToCloud = true;
