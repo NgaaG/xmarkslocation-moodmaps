@@ -735,39 +735,28 @@ try {
     // ✅ STEP 4: Save to Supabase FIRST with the generated UUID
     let savedToCloud = false;
     try {
-      // Get authenticated user
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (!user) {
-        console.warn('[Supabase] User not authenticated:', authError);
-        toast({
-          title: "Saved locally",
-          description: "Sign in to sync your journeys to the cloud"
-        });
-      } else {
-        const { data, error } = await supabase
-          .from("journal_entries")
-          .insert([{
-            id: entryId, // Use the same ID for both local and cloud
-            user_id: user.id, // Use authenticated user's ID
-            location_title: journalEntry.locationTitle,
-            playlist_name: journalEntry.playlist,
-            playlist_category_name: journalEntry.playlistCategoryName,
-            spotify_playlist_name: journalEntry.spotifyPlaylistName,
-            category: journalEntry.category,
-            mood_entries: moodEntriesJson,
-            summary_image: journalEntry.summaryImage || null,
-            destination_photo: journalEntry.destinationPhoto || null,
-          }])
-          .select()
-          .single();
+      const { data, error } = await supabase
+        .from("journal_entries")
+        .insert([{
+          id: entryId, // Use the same ID for both local and cloud
+          user_id: crypto.randomUUID(),
+          location_title: journalEntry.locationTitle,
+          playlist_name: journalEntry.playlist,
+          playlist_category_name: journalEntry.playlistCategoryName,
+          spotify_playlist_name: journalEntry.spotifyPlaylistName,
+          category: journalEntry.category,
+          mood_entries: moodEntriesJson,
+          summary_image: journalEntry.summaryImage || null,
+          destination_photo: journalEntry.destinationPhoto || null,
+        }])
+        .select()
+        .single();
 
-        if (error) {
-          console.warn('[Supabase] Insert warning:', error);
-        } else {
-          console.log('[Supabase] Journey inserted successfully with id:', entryId);
-          savedToCloud = true;
-        }
+      if (error) {
+        console.warn('[Supabase] Insert warning:', error);
+      } else {
+        console.log('[Supabase] Journey inserted successfully with id:', entryId);
+        savedToCloud = true;
       }
     } catch (supabaseErr) {
       console.log('[Supabase] Not configured or unavailable:', supabaseErr);

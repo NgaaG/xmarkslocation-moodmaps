@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import MapView from '@/components/MapView';
 import JournalView from '@/components/JournalView';
 import ModeToggle from '@/components/ModeToggle';
 import TutorialGuide from '@/components/TutorialGuide';
 import OnboardingScreen from '@/components/OnboardingScreen';
 import { Button } from '@/components/ui/button';
-import { HelpCircle, LogOut, Loader2 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { HelpCircle } from 'lucide-react';
 
 const HELP_CLICKED_KEY = 'help-icon-clicked';
 
@@ -17,16 +15,6 @@ const Index = () => {
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [showHelpHighlight, setShowHelpHighlight] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
-  
-  const { user, loading, signOut } = useAuth();
-  const navigate = useNavigate();
-
-  // Redirect to auth if not logged in
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
-  }, [user, loading, navigate]);
 
   // Check if help icon should be highlighted
   useEffect(() => {
@@ -57,42 +45,12 @@ const Index = () => {
     localStorage.setItem(HELP_CLICKED_KEY, 'true');
   };
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/auth');
-  };
-
-  if (loading) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
   return (
     <>
       {/* Onboarding Screen */}
       <OnboardingScreen onComplete={() => setOnboardingComplete(true)} />
       
       <div className="h-screen w-full overflow-hidden">
-        {/* Logout Button */}
-        <div className="absolute top-4 right-4 z-50">
-          <Button
-            onClick={handleLogout}
-            size="sm"
-            variant="outline"
-            className="bg-card/95 backdrop-blur-sm hover:bg-card shadow-lg"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
-        </div>
-
         {/* Main Content */}
         <div className="h-full w-full">
           {mode === 'journal' ? (
