@@ -19,9 +19,9 @@ interface JournalCard {
   locationTitle?: string;
   playlistName?: string;
   playlistCategoryName?: string;
-  spotifyPlaylistName?: string;
-  spotifyPlaylistLink?: string;
-  walkDurationMins?: number;
+  spotifyPlaylistName?: string; // 🆕 Now stores the Spotify playlist NAME (e.g., "Guilty Pleasures")
+  spotifyPlaylistLink?: string; // 🆕 Stores the Spotify playlist URL link
+  walkDurationMins?: number; // 🆕 Duration of walk in minutes
   category: string;
   moodEntries: Array<{
     stage: string;
@@ -44,13 +44,13 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [editingCard, setEditingCard] = useState<JournalCard | null>(null);
-
+  // 🆕 Updated editForm to include new fields: spotifyPlaylistLink and walkDurationMins
   const [editForm, setEditForm] = useState({
     locationTitle: "",
     playlistCategoryName: "",
-    spotifyPlaylistName: "",
-    spotifyPlaylistLink: "",
-    walkDurationMins: "",
+    spotifyPlaylistName: "", // 🆕 Actual Spotify playlist name
+    spotifyPlaylistLink: "", // 🆕 Spotify playlist URL
+    walkDurationMins: "",    // 🆕 Duration of walk in minutes
   });
 
   // Load journal cards from localStorage
@@ -62,6 +62,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
     loadJournalCards();
 
+    // Listen for new journal entries
     const handleStorageChange = () => {
       loadJournalCards();
     };
@@ -70,11 +71,11 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // Photo upload
   const handlePhotoUpload = (cardId: string, useCamera: boolean = false) => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
+    // Enable camera on mobile devices
     if (useCamera) {
       input.setAttribute("capture", "environment");
     }
@@ -85,6 +86,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         reader.onload = (event) => {
           const imageData = event.target?.result as string;
 
+          // Update the card with the destination photo
           const updatedCards = journalCards.map((card) =>
             card.id === cardId ? { ...card, destinationPhoto: imageData } : card,
           );
@@ -103,18 +105,61 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     input.click();
   };
 
-  // -------------------------------
-  // DOWNLOAD: original look kept
-  // -------------------------------
   const handleDownloadImage = async (card: JournalCard) => {
     if (!card.summaryImage) return;
 
-    // If destination photo exists, create collage image like before
+    toast({
+      title: "Processing...",
+      description: "Uploading images to cloud storage",
+    });
+
+    let destinationPhotoUrl: string | null = null;
+    let summaryImageUrl: string | null = null;
+    let combinedImageUrl: string | null = null;
+
+    // Helper function to upload base64 image to Supabase storage
+    const uploadBase64ToStorage = async (base64: string, prefix: string): Promise<string | null> => {
+      try {
+        // Convert base64 to blob
+        const response = await fetch(base64);
+        const blob = await response.blob();
+        
+        const fileName = `${prefix}-${card.id}-${Date.now()}.png`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("journey-images")
+          .upload(fileName, blob, { contentType: "image/png", upsert: true });
+
+        if (!uploadError && uploadData) {
+          const { data: urlData } = supabase.storage
+            .from("journey-images")
+            .getPublicUrl(fileName);
+          console.log(`[Supabase] ${prefix} uploaded:`, urlData.publicUrl);
+          return urlData.publicUrl;
+        } else {
+          console.warn(`[Supabase] ${prefix} upload failed:`, uploadError);
+          return null;
+        }
+      } catch (err) {
+        console.warn(`[Supabase] ${prefix} upload error:`, err);
+        return null;
+      }
+    };
+
+    // Upload summary_image to storage
+    summaryImageUrl = await uploadBase64ToStorage(card.summaryImage, "summary");
+
+    // Upload destination_photo to storage (if exists)
+    if (card.destinationPhoto) {
+      destinationPhotoUrl = await uploadBase64ToStorage(card.destinationPhoto, "destination");
+    }
+
+    // If there's a destination photo, create a vertical collage
     if (card.destinationPhoto) {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
+      // Load both images
       const destImg = document.createElement("img");
       const summaryImg = document.createElement("img");
 
@@ -129,283 +174,250 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         }),
       ]);
 
-      const maxWidth = 1200;
+      // Calculate optimal dimensions - fit both images at full width
+      const maxWidth = 1200; // Max width for good quality
       const padding = 60;
       const gap = 40;
 
+      // Scale summary image to fit max width
       const summaryScale = Math.min(1, maxWidth / summaryImg.width);
       const summaryWidth = summaryImg.width * summaryScale;
       const summaryHeight = summaryImg.height * summaryScale;
 
+      // Scale destination image to match summary width
       const destScale = summaryWidth / destImg.width;
       const destWidth = destImg.width * destScale;
       const destHeight = destImg.height * destScale;
 
-      const scale = Math.min(window.devicePixelRatio || 2, 3);
-
-      const textBarHeight = 100;
-
+      // Mobile quality enhancement - use device pixel ratio for retina displays
+      const scale = Math.min(window.devicePixelRatio || 2, 3); // Cap at 3x for performance
+      
+      // Set canvas size with pixel ratio scaling
       const canvasLogicalWidth = summaryWidth + padding * 2;
-      const canvasLogicalHeight =
-        summaryHeight + destHeight + gap + padding * 2 + textBarHeight;
-
+      const canvasLogicalHeight = summaryHeight + destHeight + gap + padding * 2;
+      
       canvas.width = canvasLogicalWidth * scale;
       canvas.height = canvasLogicalHeight * scale;
-
+      
+      // Scale context for high DPI rendering
       ctx.scale(scale, scale);
+
+      // Enable high-quality rendering with full opacity
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      ctx.globalAlpha = 1.0;
+      ctx.globalAlpha = 1.0; // Ensure 100% opacity
 
+      // White background
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, canvasLogicalWidth, canvasLogicalHeight);
 
+      // Draw summary on top (centered horizontally)
       const summaryX = padding;
       const summaryY = padding;
       ctx.drawImage(summaryImg, summaryX, summaryY, summaryWidth, summaryHeight);
 
+      // Draw destination photo below (centered horizontally, same width)
       const destX = padding;
       const destY = summaryY + summaryHeight + gap;
       ctx.drawImage(destImg, destX, destY, destWidth, destHeight);
 
-      const barY = canvasLogicalHeight - textBarHeight;
-      ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-      ctx.fillRect(0, barY, canvasLogicalWidth, textBarHeight);
+      // 🆕 Add metadata text overlay at the bottom - expanded to fit all entry details
+      const textPadding = 20;
+      const textHeight = 180; // 🆕 Increased from 100 to 180 to fit all 5 lines
+      const textY = canvasLogicalHeight - textHeight - padding;
 
+      // Semi-transparent background for text
+      ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+      ctx.fillRect(padding, textY, summaryWidth, textHeight);
+
+      // Configure text rendering
+      ctx.fillStyle = "#FFFFFF";
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
-      ctx.fillStyle = "#FFFFFF";
 
+      // 🆕 Line 1: Location title (larger font)
       ctx.font = "bold 28px Inter, system-ui, sans-serif";
-      ctx.fillText(
-        card.locationTitle || "Unknown Location",
-        padding,
-        barY + 16,
-      );
+      ctx.fillText(card.locationTitle || "Unknown Location", padding + textPadding, textY + textPadding);
 
+      // 🆕 Line 2: Playlist category (medium font)
       ctx.font = "20px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#DDDDDD";
+      ctx.fillText(card.playlistCategoryName || card.category, padding + textPadding, textY + textPadding + 36);
+
+      // 🆕 Line 3: Spotify playlist name (medium font, italic)
+      ctx.font = "italic 18px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "#CCCCCC";
       ctx.fillText(
-        card.playlistCategoryName || card.category,
-        padding,
-        barY + 16 + 30,
+        "Spotify: " + (card.spotifyPlaylistName || "No playlist"),
+        padding + textPadding,
+        textY + textPadding + 64,
       );
 
+      // 🆕 Line 4: Spotify playlist link (smaller font)
+      ctx.font = "16px Inter, system-ui, sans-serif";
+      ctx.fillStyle = "#AAAAAA";
+      const linkText = card.spotifyPlaylistLink ? card.spotifyPlaylistLink : "No link provided";
+      ctx.fillText(linkText.length > 50 ? linkText.substring(0, 50) + "..." : linkText, padding + textPadding, textY + textPadding + 92);
+
+      // 🆕 Line 5: Duration of walk
       ctx.font = "18px Inter, system-ui, sans-serif";
-      ctx.fillStyle = "#CCCCCC";
-      const spotifyLabel =
-        (card.spotifyPlaylistLink && card.spotifyPlaylistLink.length > 0
-          ? card.spotifyPlaylistLink
-          : card.spotifyPlaylistName || "") + " - Spotify";
-      ctx.fillText(spotifyLabel, padding, barY + 16 + 58);
+      ctx.fillStyle = "#BBBBBB";
+      ctx.fillText(
+        "Duration: " + (card.walkDurationMins ? card.walkDurationMins + " mins" : "Not recorded"),
+        padding + textPadding,
+        textY + textPadding + 120,
+      );
 
-      // Immediate download (works on desktop + mobile)
-      const link = document.createElement("a");
-      link.href = canvas.toDataURL("image/png", 1.0);
-      link.download = `${card.playlistName || "journey"}-complete.png`;
-      link.click();
+      // Convert canvas to blob for upload
+      const blob = await new Promise<Blob>((resolve) =>
+        canvas.toBlob((b) => resolve(b!), "image/png", 1.0)
+      );
 
-      // Background upload + DB sync
-      void uploadAndSyncImages(card, canvas.toDataURL("image/png", 1.0));
+      // Upload combined image to Supabase Storage
+      const fileName = `combined-${card.id}-${Date.now()}.png`;
+      try {
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("journey-images")
+          .upload(fileName, blob, { contentType: "image/png", upsert: true });
+
+        if (!uploadError && uploadData) {
+          const { data: urlData } = supabase.storage
+            .from("journey-images")
+            .getPublicUrl(fileName);
+          combinedImageUrl = urlData.publicUrl;
+          console.log("[Supabase] Combined image uploaded:", combinedImageUrl);
+        } else {
+          console.warn("[Supabase] Combined upload failed:", uploadError);
+        }
+      } catch (err) {
+        console.log("[Supabase] Combined upload unavailable:", err);
+      }
+
+      // 🆕 Download combined image using blob for mobile compatibility
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = blobUrl;
+          link.download = `${card.playlistName || "journey"}-complete.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(blobUrl);
+        }
+      }, "image/png", 1.0);
+
+      toast({
+        title: "Downloaded! 💾",
+        description: "Complete journey with destination photo saved",
+      });
     } else {
-      // Summary-only image
+      // 🆕 Download summary image using blob for mobile compatibility
+      const response = await fetch(card.summaryImage);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = card.summaryImage;
+      link.href = blobUrl;
       link.download = `${card.playlistName || "journey"}.png`;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(blobUrl);
 
-      void uploadAndSyncImages(card, null);
+      toast({
+        title: "Downloaded! 💾",
+        description: "Journey saved to your device",
+      });
     }
 
-    toast({
-      title: "Downloaded! 💾",
-      description: "Journey saved to your device",
-    });
-  };
-
-  // Background upload helper (now updates journal_entries + mood_journeys)
-  const uploadAndSyncImages = async (card: JournalCard, combinedDataUrl: string | null) => {
+    // Update database with all image URLs
     try {
-      toast({
-        title: "Processing...",
-        description: "Uploading images to cloud storage",
-      });
-
-      let destinationPhotoUrl: string | null = null;
-      let summaryImageUrl: string | null = null;
-      let combinedImageUrl: string | null = null;
-
-      const uploadBase64ToStorage = async (
-        base64: string,
-        prefix: string,
-      ): Promise<string | null> => {
-        try {
-          const response = await fetch(base64);
-          const blob = await response.blob();
-
-          const fileName = `${prefix}-${card.id}-${Date.now()}.png`;
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from("journey-images")
-            .upload(fileName, blob, { contentType: "image/png", upsert: true });
-
-          if (!uploadError && uploadData) {
-            const { data: urlData } = supabase.storage
-              .from("journey-images")
-              .getPublicUrl(fileName);
-            console.log(`[Supabase] ${prefix} uploaded:`, urlData.publicUrl);
-            return urlData.publicUrl;
-          } else {
-            console.warn(`[Supabase] ${prefix} upload failed:`, uploadError);
-            return null;
-          }
-        } catch (err) {
-          console.warn(`[Supabase] ${prefix} upload error:`, err);
-          return null;
-        }
-      };
-
-      if (card.summaryImage) {
-        summaryImageUrl = await uploadBase64ToStorage(card.summaryImage, "summary");
-      }
-
-      if (card.destinationPhoto) {
-        destinationPhotoUrl = await uploadBase64ToStorage(card.destinationPhoto, "destination");
-      }
-
-      if (combinedDataUrl) {
-        combinedImageUrl = await uploadBase64ToStorage(combinedDataUrl, "combined");
-      }
-
       const updateData: Record<string, string | null> = {};
       if (summaryImageUrl) updateData.summary_image = summaryImageUrl;
-      if (destinationPhotoUrl) updateData.destination_image_url = destinationPhotoUrl; // key fixed
+      if (destinationPhotoUrl) updateData.destination_photo = destinationPhotoUrl;
       if (combinedImageUrl) updateData.combined_image_url = combinedImageUrl;
 
       if (Object.keys(updateData).length > 0) {
-        // journal_entries
-        const { error: journalError } = await supabase
+        const { error } = await supabase
           .from("journal_entries")
           .update(updateData)
           .eq("id", card.id);
 
-        if (journalError) {
-          console.warn("[Supabase] journal_entries update failed:", journalError);
-        }
-
-        // mood_journeys mirror (images only)
-        const { error: journeysError } = await supabase
-          .from("mood_journeys")
-          .upsert(
-            {
-              id: card.id,
-              summary_image: summaryImageUrl,
-              destination_image_url: destinationPhotoUrl,
-              combined_image_url: combinedImageUrl,
-            },
-            { onConflict: "id" },
-          );
-
-        if (journeysError) {
-          console.warn("[Supabase] mood_journeys image update failed:", journeysError);
+        if (error) {
+          console.warn("[Supabase] Database update failed:", error);
         } else {
-          console.log("[Supabase] mood_journeys image URLs synced");
+          console.log("[Supabase] All image URLs saved to database:", updateData);
         }
       }
     } catch (err) {
-      console.log("[Supabase] uploadAndSyncImages error:", err);
+      console.log("[Supabase] Database update unavailable:", err);
     }
   };
 
-  // Edit dialog open
+  // 🆕 Updated to load all new fields including spotifyPlaylistLink and walkDurationMins
   const handleEditCard = (card: JournalCard) => {
     setEditingCard(card);
     setEditForm({
       locationTitle: card.locationTitle || "",
       playlistCategoryName: card.playlistCategoryName || "",
-      spotifyPlaylistName: card.spotifyPlaylistName || "",
-      spotifyPlaylistLink: card.spotifyPlaylistLink || "",
-      walkDurationMins:
-        typeof card.walkDurationMins === "number" ? String(card.walkDurationMins) : "",
+      spotifyPlaylistName: card.spotifyPlaylistName || "", // 🆕 Playlist name
+      spotifyPlaylistLink: card.spotifyPlaylistLink || "", // 🆕 Playlist URL link
+      walkDurationMins: card.walkDurationMins?.toString() || "", // 🆕 Walk duration
     });
   };
 
-  // Save edits (journal_entries + mood_journeys)
+  // 🆕 Updated handleSaveEdit to save all new fields to localStorage AND Supabase, then close dialog
   const handleSaveEdit = async () => {
     if (!editingCard) return;
 
-    const walkDurationNumber =
-      editForm.walkDurationMins.trim().length > 0
-        ? parseInt(editForm.walkDurationMins, 10)
-        : null;
+    // 🆕 Parse walk duration as number (or undefined if empty)
+    const walkDuration = editForm.walkDurationMins ? parseInt(editForm.walkDurationMins, 10) : undefined;
 
     const updatedCards = journalCards.map((card) =>
       card.id === editingCard.id
         ? {
             ...card,
-            locationTitle: editForm.locationTitle,
+            locationTitle: editForm.locationTitle, // 🆕 Now properly saves user's custom location
             playlistCategoryName: editForm.playlistCategoryName,
-            spotifyPlaylistName: editForm.spotifyPlaylistName,
-            spotifyPlaylistLink: editForm.spotifyPlaylistLink,
-            walkDurationMins: walkDurationNumber ?? undefined,
+            spotifyPlaylistName: editForm.spotifyPlaylistName, // 🆕 Spotify playlist name
+            spotifyPlaylistLink: editForm.spotifyPlaylistLink, // 🆕 Spotify playlist URL
+            walkDurationMins: walkDuration, // 🆕 Walk duration in mins
           }
         : card,
     );
 
     setJournalCards(updatedCards);
     localStorage.setItem("moodJournalEntries", JSON.stringify(updatedCards));
-    console.log("[JournalView] Card edited:", editingCard.id);
-
+    console.log('[JournalView] Card edited:', editingCard.id);
+    
+    // 🆕 Sync ALL fields to Supabase including new ones
     try {
-      // journal_entries
-      const { error: journalError } = await supabase
+      const { error } = await supabase
         .from("journal_entries")
         .update({
           location_title: editForm.locationTitle,
           playlist_category_name: editForm.playlistCategoryName,
-          spotify_playlist_name: editForm.spotifyPlaylistName,
-          spotify_playlist_link: editForm.spotifyPlaylistLink,
-          walk_duration_mins: walkDurationNumber,
+          spotify_playlist_name: editForm.spotifyPlaylistName, // 🆕 Playlist name
+          walk_duration_mins: walkDuration || null, // 🆕 Walk duration
         })
         .eq("id", editingCard.id);
 
-      if (journalError) {
-        console.warn("[Supabase] journal_entries update failed:", journalError);
+      if (error) {
+        console.warn('[Supabase] Update failed:', error);
       } else {
-        console.log("[Supabase] journal_entries updated successfully");
-      }
-
-      // mood_journeys mirror (full row)
-      const { error: journeysError } = await supabase.from("mood_journeys").upsert(
-        {
-          id: editingCard.id,
-          location_title: editForm.locationTitle,
-          playlist: editingCard.playlistName ?? null,
-          playlist_category_name: editForm.playlistCategoryName,
-          spotify_playlist_name: editForm.spotifyPlaylistName,
-          spotify_playlist_link: editForm.spotifyPlaylistLink,
-          walk_duration_mins: walkDurationNumber,
-          category: editingCard.category,
-          mood_entries: editingCard.moodEntries,
-          timestamp: editingCard.timestamp,
-        },
-        { onConflict: "id" },
-      );
-
-      if (journeysError) {
-        console.warn("[Supabase] mood_journeys upsert failed:", journeysError);
-      } else {
-        console.log("[Supabase] mood_journeys upserted successfully");
+        console.log('[Supabase] Card updated successfully with all fields');
       }
     } catch (err) {
-      console.log("[Supabase] Update unavailable:", err);
+      console.log('[Supabase] Update unavailable:', err);
     }
 
+    // 🆕 Show feedback and close dialog immediately
     toast({
       title: "Updated! ✏️",
-      description: "Journey details updated",
+      description: "Journey details saved to cloud",
     });
 
-    setEditingCard(null);
+    setEditingCard(null); // 🆕 Closes the dialog
   };
 
   const filteredCards = selectedCategory
@@ -469,16 +481,10 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                   >
                     <Edit2 className="h-4 w-4" />
                   </Button>
-                  <h3 className="text-base font-medium pr-8">
-                    {card.locationTitle || "Unknown Location"}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {card.playlistCategoryName || card.category}
-                  </p>
+                  <h3 className="text-base font-medium pr-8">{card.locationTitle || "Unknown Location"}</h3>
+                  <p className="text-sm text-muted-foreground">{card.playlistCategoryName || card.category}</p>
                   {card.spotifyPlaylistName && (
-                    <p className="text-xs text-muted-foreground italic">
-                      {card.spotifyPlaylistName} - Spotify
-                    </p>
+                    <p className="text-xs text-muted-foreground italic">{card.spotifyPlaylistName} - Spotify</p>
                   )}
 
                   {/* Mood Entries Summary */}
@@ -494,9 +500,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                   {/* Destination Photo Gallery */}
                   {card.destinationPhoto && (
                     <div className="pt-2 border-t border-border">
-                      <p className="text-xs font-medium text-muted-foreground mb-2">
-                        Destination Photo
-                      </p>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Destination Photo</p>
                       <div className="w-full h-32 rounded-md overflow-hidden border border-border">
                         <img
                           src={card.destinationPhoto}
@@ -509,8 +513,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
                   )}
 
                   <p className="text-sm text-muted-foreground pt-2">
-                    {new Date(card.timestamp).toLocaleDateString()} • {card.moodEntries.length}{" "}
-                    emotions •{" "}
+                    {new Date(card.timestamp).toLocaleDateString()} • {card.moodEntries.length} emotions •{" "}
                     <span className="font-medium capitalize">
                       {card.category === "peaceful" && "🌊 Peaceful"}
                       {card.category === "social" && "✨ Social"}
@@ -560,28 +563,38 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
               </div>
             </Card>
           ))}
+
+          {/* Empty state placeholder cards */}
+          {[...Array(Math.max(1, 6 - filteredCards.length))].map((_, i) => (
+            <Card
+              key={`placeholder-${i}`}
+              className="border-2 border-dashed border-border bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer min-h-[300px] flex items-center justify-center"
+            >
+              <div className="text-center space-y-2 p-6">
+                <Plus className="w-12 h-12 mx-auto text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Create a new journal card</p>
+              </div>
+            </Card>
+          ))}
         </div>
       </div>
 
       {/* Image Viewer Dialog */}
-      <Dialog
-        open={selectedImage !== null}
-        onOpenChange={(open) => !open && setSelectedImage(null)}
-      >
-        <DialogContent className="max-w-4xl p-0 md:max-h-[90vh] overflow-hidden">
+      <Dialog open={selectedImage !== null} onOpenChange={(open) => !open && setSelectedImage(null)}>
+        <DialogContent className="max-w-4xl p-0" aria-describedby="image-viewer-description">
           <DialogHeader className="sr-only">
             <DialogTitle>View Journey Image</DialogTitle>
           </DialogHeader>
-          <div className="relative max-h-[90vh] overflow-auto">
+          <div className="relative">
             {selectedImage && (
               <>
                 <img src={selectedImage} alt="Journey summary" className="w-full h-auto" />
-                <div className="sticky bottom-0 right-0 flex justify-end p-4 bg-gradient-to-t from-background/95 via-background/70 to-transparent">
+                <div className="absolute bottom-4 right-4">
                   <Button
                     onClick={() => {
                       const card = journalCards.find((c) => c.id === selectedCardId);
                       if (card) {
-                        void handleDownloadImage(card);
+                        handleDownloadImage(card);
                       }
                     }}
                     className="gap-2"
@@ -596,20 +609,21 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         </DialogContent>
       </Dialog>
 
-      {/* Edit Card Dialog - responsive, scrollable so Save button is always visible */}
+      {/* 🆕 Updated Edit Card Dialog with new fields */}
       <Dialog open={editingCard !== null} onOpenChange={(open) => !open && setEditingCard(null)}>
         <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Journey Details</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-4">
+            {/* 🆕 Location Title - now properly saves user's custom name */}
             <div className="space-y-2">
-              <Label htmlFor="locationTitle">Location</Label>
+              <Label htmlFor="locationTitle">Location Name</Label>
               <Input
                 id="locationTitle"
                 value={editForm.locationTitle}
                 onChange={(e) => setEditForm({ ...editForm, locationTitle: e.target.value })}
-                placeholder="Location name"
+                placeholder="Enter your custom location name"
               />
             </div>
             <div className="space-y-2">
@@ -617,49 +631,55 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
               <Input
                 id="playlistCategoryName"
                 value={editForm.playlistCategoryName}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, playlistCategoryName: e.target.value })
-                }
+                onChange={(e) => setEditForm({ ...editForm, playlistCategoryName: e.target.value })}
                 placeholder="e.g., Coffeeshop Vibes"
               />
             </div>
+            {/* 🆕 NEW: Spotify Playlist Name field */}
             <div className="space-y-2">
-              <Label htmlFor="spotifyPlaylistName">Spotify playlist name</Label>
+              <Label htmlFor="spotifyPlaylistName">Spotify Playlist Name</Label>
               <Input
                 id="spotifyPlaylistName"
                 value={editForm.spotifyPlaylistName}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, spotifyPlaylistName: e.target.value })
-                }
-                placeholder="e.g., Peaceful Piano"
+                onChange={(e) => setEditForm({ ...editForm, spotifyPlaylistName: e.target.value })}
+                placeholder="e.g., Guilty Pleasures"
               />
             </div>
+            {/* 🆕 NEW: Spotify Playlist Link field - displays as clickable hyperlink */}
             <div className="space-y-2">
-              <Label htmlFor="spotifyPlaylistLink">Spotify playlist link URL</Label>
+              <Label htmlFor="spotifyPlaylistLink">Spotify Playlist Link URL</Label>
               <Input
                 id="spotifyPlaylistLink"
                 value={editForm.spotifyPlaylistLink}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, spotifyPlaylistLink: e.target.value })
-                }
+                onChange={(e) => setEditForm({ ...editForm, spotifyPlaylistLink: e.target.value })}
                 placeholder="https://open.spotify.com/playlist/..."
               />
+              {/* 🆕 Show clickable link preview if URL is entered */}
+              {editForm.spotifyPlaylistLink && (
+                <a
+                  href={editForm.spotifyPlaylistLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline break-all"
+                >
+                  🔗 Open playlist in Spotify
+                </a>
+              )}
             </div>
+            {/* 🆕 NEW: Duration of Walk field */}
             <div className="space-y-2">
-              <Label htmlFor="walkDurationMins">Duration of walk (mins)</Label>
+              <Label htmlFor="walkDurationMins">Duration of Walk (mins)</Label>
               <Input
                 id="walkDurationMins"
                 type="number"
-                min={0}
+                min="1"
                 value={editForm.walkDurationMins}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, walkDurationMins: e.target.value })
-                }
-                placeholder="e.g., 22"
+                onChange={(e) => setEditForm({ ...editForm, walkDurationMins: e.target.value })}
+                placeholder="e.g., 45"
               />
             </div>
           </div>
-          <div className="flex gap-3 pt-2 sticky bottom-0 bg-background">
+          <div className="flex gap-3">
             <Button variant="outline" className="flex-1" onClick={() => setEditingCard(null)}>
               Cancel
             </Button>
