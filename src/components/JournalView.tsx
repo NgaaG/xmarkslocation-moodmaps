@@ -398,23 +398,26 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       console.log("[Supabase] journal_entries update unavailable:", err);
     }
 
-    // 2) mirror: mood_journeys (non‑blocking)
+    // 2) mirror: mood_journeys (non‑blocking, with full logging)
     try {
-      const { error: journeysError } = await supabase.from("mood_journeys").upsert(
-        {
-          id: editingCard.id,
-          location_title: editForm.locationTitle,
-          playlist: editingCard.playlistName ?? null,
-          playlist_category_name: editForm.playlistCategoryName,
-          spotify_playlist_name: editForm.spotifyPlaylistName,
-          spotify_playlist_link: editForm.spotifyPlaylistLink || null,
-          walk_duration_mins: walkDurationNumber,
-          category: editingCard.category,
-          mood_entries: editingCard.moodEntries,
-          timestamp: editingCard.timestamp,
-        },
-        { onConflict: "id" },
-      );
+      const { data, error: journeysError } = await supabase
+        .from("mood_journeys")
+        .upsert(
+          {
+            id: editingCard.id,
+            location_title: editForm.locationTitle,
+            playlist: editingCard.playlistName ?? null,
+            playlist_category_name: editForm.playlistCategoryName,
+            spotify_playlist_name: editForm.spotifyPlaylistName,
+            spotify_playlist_link: editForm.spotifyPlaylistLink || null,
+            walk_duration_mins: walkDurationNumber,
+            category: editingCard.category,
+            mood_entries: editingCard.moodEntries,
+            timestamp: editingCard.timestamp,
+          },
+          { onConflict: "id" },
+        )
+        .select();
 
       if (journeysError) {
         console.warn(
@@ -424,7 +427,12 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
           journeysError.details,
         );
       } else {
-        console.log("[Supabase] mood_journeys upserted successfully for id:", editingCard.id);
+        console.log(
+          "[Supabase] mood_journeys upserted successfully for id:",
+          editingCard.id,
+          "row:",
+          data,
+        );
       }
     } catch (err) {
       console.log("[Supabase] mood_journeys upsert unavailable (non-blocking):", err);
