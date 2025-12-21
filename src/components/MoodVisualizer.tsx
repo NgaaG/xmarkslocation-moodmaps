@@ -7,7 +7,7 @@ import { X, Save, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CustomEmoji from "./CustomEmoji";
 import html2canvas from "html2canvas";
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MoodVisualizerProps {
   category: SpotCategory;
@@ -733,20 +733,24 @@ try {
 
    // ✅ STEP 4: Sync to Supabase (cloud backup)
     try {
+      // Convert mood entries timestamps to ISO strings for JSON compatibility
+      const moodEntriesJson = journalEntry.moodEntries.map(entry => ({
+        stage: entry.stage,
+        emotion: entry.emotion,
+        timestamp: entry.timestamp instanceof Date ? entry.timestamp.toISOString() : entry.timestamp
+      }));
+
       const { error } = await supabase
-        .from("mood_journeys")
-        .insert({
-          id: journalEntry.id,
+        .from("journal_entries")
+        .insert([{
+          user_id: crypto.randomUUID(),
           location_title: journalEntry.locationTitle,
-          latitude: journalEntry.latitude,
-          longitude: journalEntry.longitude,
-          playlist: journalEntry.playlist,
+          playlist_name: journalEntry.playlist,
           playlist_category_name: journalEntry.playlistCategoryName,
           spotify_playlist_name: journalEntry.spotifyPlaylistName,
           category: journalEntry.category,
-          mood_entries: journalEntry.moodEntries,
-          timestamp: journalEntry.timestamp
-        });
+          mood_entries: moodEntriesJson,
+        }]);
 
       if (error) {
         console.warn('[Supabase] Insert warning:', error);
