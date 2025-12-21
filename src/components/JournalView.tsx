@@ -420,23 +420,26 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       console.log("[Supabase] journal_entries update unavailable:", err);
     }
 
-    // 2) mirror: mood_journeys (non‑blocking)
+     // 2) mirror: mood_journeys (non‑blocking)
     try {
-      const { error: journeysError } = await supabase.from("mood_journeys").upsert(
-        {
-          id: editingCard.id,
-          location_title: editForm.locationTitle,
-          playlist: editingCard.playlistName ?? null,
-          playlist_category_name: editForm.playlistCategoryName,
-          spotify_playlist_name: editForm.spotifyPlaylistName,
-          spotify_playlist_link: editForm.spotifyPlaylistLink || null,
-          walk_duration_mins: walkDurationNumber,
-          category: editingCard.category,
-          mood_entries: editingCard.moodEntries,
-          timestamp: editingCard.timestamp,
-        },
-        { onConflict: "id" },
-      );
+      const { data, error: journeysError } = await supabase
+        .from("mood_journeys")
+        .upsert(
+          {
+            id: editingCard.id,
+            location_title: editForm.locationTitle,
+            playlist: editingCard.playlistName ?? null,
+            playlist_category_name: editForm.playlistCategoryName,
+            spotify_playlist_name: editForm.spotifyPlaylistName,
+            spotify_playlist_link: editForm.spotifyPlaylistLink || null,
+            walk_duration_mins: walkDurationNumber,
+            category: editingCard.category,
+            mood_entries: editingCard.moodEntries,
+            timestamp: editingCard.timestamp,
+          },
+          { onConflict: "id" },
+        )
+        .select(); // so we can see what Supabase actually wrote
 
       if (journeysError) {
         console.warn(
@@ -446,26 +449,17 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
           journeysError.details,
         );
       } else {
-        console.log("[Supabase] mood_journeys upserted successfully for id:", editingCard.id);
+        console.log(
+          "[Supabase] mood_journeys upserted successfully for id:",
+          editingCard.id,
+          "row:",
+          data,
+        );
       }
     } catch (err) {
       console.log("[Supabase] mood_journeys upsert unavailable (non-blocking):", err);
     }
 
-    if (savedToCloud) {
-      toast({
-        title: "Updated! ✏️☁️",
-        description: "Journey details synced to cloud",
-      });
-    } else {
-      toast({
-        title: "Updated locally",
-        description: "Cloud sync pending - changes saved to device",
-      });
-    }
-
-    setEditingCard(null);
-  };
 
   const filteredCards = selectedCategory
     ? journalCards.filter((card) => card.category === selectedCategory)
