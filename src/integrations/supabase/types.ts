@@ -25,6 +25,7 @@ export type Database = {
           mood_entries: Json
           playlist_category_name: string | null
           playlist_name: string | null
+          spotify_playlist_link: string | null
           spotify_playlist_name: string | null
           summary_data: Json | null
           summary_image: string | null
@@ -42,6 +43,7 @@ export type Database = {
           mood_entries?: Json
           playlist_category_name?: string | null
           playlist_name?: string | null
+          spotify_playlist_link?: string | null
           spotify_playlist_name?: string | null
           summary_data?: Json | null
           summary_image?: string | null
@@ -59,6 +61,7 @@ export type Database = {
           mood_entries?: Json
           playlist_category_name?: string | null
           playlist_name?: string | null
+          spotify_playlist_link?: string | null
           spotify_playlist_name?: string | null
           summary_data?: Json | null
           summary_image?: string | null

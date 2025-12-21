@@ -7,7 +7,7 @@ import FilterBar from "./FilterBar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/integrations/supabase/client";
 
 interface JournalViewProps {
   selectedCategory: string | null;
@@ -19,9 +19,9 @@ interface JournalCard {
   locationTitle?: string;
   playlistName?: string;
   playlistCategoryName?: string;
-  spotifyPlaylistName?: string; // 🆕 Now stores the Spotify playlist NAME (e.g., "Guilty Pleasures")
-  spotifyPlaylistLink?: string; // 🆕 Stores the Spotify playlist URL link
-  walkDurationMins?: number; // 🆕 Duration of walk in minutes
+  spotifyPlaylistName?: string;
+  spotifyPlaylistLink?: string;
+  walkDurationMins?: number;
   category: string;
   moodEntries: Array<{
     stage: string;
@@ -44,13 +44,13 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [editingCard, setEditingCard] = useState<JournalCard | null>(null);
-  // 🆕 Updated editForm to include new fields: spotifyPlaylistLink and walkDurationMins
+
   const [editForm, setEditForm] = useState({
     locationTitle: "",
     playlistCategoryName: "",
-    spotifyPlaylistName: "", // 🆕 Actual Spotify playlist name
-    spotifyPlaylistLink: "", // 🆕 Spotify playlist URL
-    walkDurationMins: "",    // 🆕 Duration of walk in minutes
+    spotifyPlaylistName: "",
+    spotifyPlaylistLink: "",
+    walkDurationMins: "",
   });
 
   // Load journal cards from localStorage
@@ -62,7 +62,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
     loadJournalCards();
 
-    // Listen for new journal entries
     const handleStorageChange = () => {
       loadJournalCards();
     };
@@ -75,7 +74,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
-    // Enable camera on mobile devices
     if (useCamera) {
       input.setAttribute("capture", "environment");
     }
@@ -86,7 +84,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         reader.onload = (event) => {
           const imageData = event.target?.result as string;
 
-          // Update the card with the destination photo
           const updatedCards = journalCards.map((card) =>
             card.id === cardId ? { ...card, destinationPhoto: imageData } : card,
           );
@@ -117,13 +114,14 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     let summaryImageUrl: string | null = null;
     let combinedImageUrl: string | null = null;
 
-    // Helper function to upload base64 image to Supabase storage
-    const uploadBase64ToStorage = async (base64: string, prefix: string): Promise<string | null> => {
+    const uploadBase64ToStorage = async (
+      base64: string,
+      prefix: string,
+    ): Promise<string | null> => {
       try {
-        // Convert base64 to blob
         const response = await fetch(base64);
         const blob = await response.blob();
-        
+
         const fileName = `${prefix}-${card.id}-${Date.now()}.png`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("journey-images")
@@ -145,21 +143,17 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       }
     };
 
-    // Upload summary_image to storage
     summaryImageUrl = await uploadBase64ToStorage(card.summaryImage, "summary");
 
-    // Upload destination_photo to storage (if exists)
     if (card.destinationPhoto) {
       destinationPhotoUrl = await uploadBase64ToStorage(card.destinationPhoto, "destination");
     }
 
-    // If there's a destination photo, create a vertical collage
     if (card.destinationPhoto) {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      // Load both images
       const destImg = document.createElement("img");
       const summaryImg = document.createElement("img");
 
@@ -174,77 +168,72 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         }),
       ]);
 
-      // Calculate optimal dimensions - fit both images at full width
-      const maxWidth = 1200; // Max width for good quality
+      const maxWidth = 1200;
       const padding = 60;
       const gap = 40;
 
-      // Scale summary image to fit max width
       const summaryScale = Math.min(1, maxWidth / summaryImg.width);
       const summaryWidth = summaryImg.width * summaryScale;
       const summaryHeight = summaryImg.height * summaryScale;
 
-      // Scale destination image to match summary width
       const destScale = summaryWidth / destImg.width;
       const destWidth = destImg.width * destScale;
       const destHeight = destImg.height * destScale;
 
-      // Mobile quality enhancement - use device pixel ratio for retina displays
-      const scale = Math.min(window.devicePixelRatio || 2, 3); // Cap at 3x for performance
-      
-      // Set canvas size with pixel ratio scaling
+      const scale = Math.min(window.devicePixelRatio || 2, 3);
+
       const canvasLogicalWidth = summaryWidth + padding * 2;
       const canvasLogicalHeight = summaryHeight + destHeight + gap + padding * 2;
-      
+
       canvas.width = canvasLogicalWidth * scale;
       canvas.height = canvasLogicalHeight * scale;
-      
-      // Scale context for high DPI rendering
-      ctx.scale(scale, scale);
 
-      // Enable high-quality rendering with full opacity
+      ctx.scale(scale, scale);
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      ctx.globalAlpha = 1.0; // Ensure 100% opacity
+      ctx.globalAlpha = 1.0;
 
-      // White background
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, canvasLogicalWidth, canvasLogicalHeight);
 
-      // Draw summary on top (centered horizontally)
       const summaryX = padding;
       const summaryY = padding;
       ctx.drawImage(summaryImg, summaryX, summaryY, summaryWidth, summaryHeight);
 
-      // Draw destination photo below (centered horizontally, same width)
       const destX = padding;
       const destY = summaryY + summaryHeight + gap;
       ctx.drawImage(destImg, destX, destY, destWidth, destHeight);
 
-      // 🆕 Add metadata text overlay at the bottom - expanded to fit all entry details
+      // Expanded metadata block for 5 lines
       const textPadding = 20;
-      const textHeight = 180; // 🆕 Increased from 100 to 180 to fit all 5 lines
+      const textHeight = 180;
       const textY = canvasLogicalHeight - textHeight - padding;
 
-      // Semi-transparent background for text
       ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
       ctx.fillRect(padding, textY, summaryWidth, textHeight);
 
-      // Configure text rendering
       ctx.fillStyle = "#FFFFFF";
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
 
-      // 🆕 Line 1: Location title (larger font)
+      // Line 1: location title
       ctx.font = "bold 28px Inter, system-ui, sans-serif";
-      ctx.fillText(card.locationTitle || "Unknown Location", padding + textPadding, textY + textPadding);
+      ctx.fillText(
+        card.locationTitle || "Unknown Location",
+        padding + textPadding,
+        textY + textPadding,
+      );
 
-      // 🆕 Line 2: Playlist category (medium font)
+      // Line 2: playlist category
       ctx.font = "20px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#DDDDDD";
-      ctx.fillText(card.playlistCategoryName || card.category, padding + textPadding, textY + textPadding + 36);
+      ctx.fillText(
+        card.playlistCategoryName || card.category,
+        padding + textPadding,
+        textY + textPadding + 36,
+      );
 
-      // 🆕 Line 3: Spotify playlist name (medium font, italic)
+      // Line 3: Spotify playlist name
       ctx.font = "italic 18px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#CCCCCC";
       ctx.fillText(
@@ -253,27 +242,33 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         textY + textPadding + 64,
       );
 
-      // 🆕 Line 4: Spotify playlist link (smaller font)
+      // Line 4: Spotify playlist link (truncated)
       ctx.font = "16px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#AAAAAA";
-      const linkText = card.spotifyPlaylistLink ? card.spotifyPlaylistLink : "No link provided";
-      ctx.fillText(linkText.length > 50 ? linkText.substring(0, 50) + "..." : linkText, padding + textPadding, textY + textPadding + 92);
+      const linkText =
+        card.spotifyPlaylistLink && card.spotifyPlaylistLink.length > 0
+          ? card.spotifyPlaylistLink
+          : "No link provided";
+      ctx.fillText(
+        linkText.length > 50 ? linkText.substring(0, 50) + "..." : linkText,
+        padding + textPadding,
+        textY + textPadding + 92,
+      );
 
-      // 🆕 Line 5: Duration of walk
+      // Line 5: walk duration
       ctx.font = "18px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#BBBBBB";
       ctx.fillText(
-        "Duration: " + (card.walkDurationMins ? card.walkDurationMins + " mins" : "Not recorded"),
+        "Duration: " +
+          (card.walkDurationMins ? `${card.walkDurationMins} mins` : "Not recorded"),
         padding + textPadding,
         textY + textPadding + 120,
       );
 
-      // Convert canvas to blob for upload
       const blob = await new Promise<Blob>((resolve) =>
-        canvas.toBlob((b) => resolve(b!), "image/png", 1.0)
+        canvas.toBlob((b) => resolve(b!), "image/png", 1.0),
       );
 
-      // Upload combined image to Supabase Storage
       const fileName = `combined-${card.id}-${Date.now()}.png`;
       try {
         const { data: uploadData, error: uploadError } = await supabase.storage
@@ -293,36 +288,20 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         console.log("[Supabase] Combined upload unavailable:", err);
       }
 
-      // 🆕 Download combined image using blob for mobile compatibility
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const blobUrl = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = blobUrl;
-          link.download = `${card.playlistName || "journey"}-complete.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(blobUrl);
-        }
-      }, "image/png", 1.0);
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png", 1.0);
+      link.download = `${card.playlistName || "journey"}-complete.png`;
+      link.click();
 
       toast({
         title: "Downloaded! 💾",
         description: "Complete journey with destination photo saved",
       });
     } else {
-      // 🆕 Download summary image using blob for mobile compatibility
-      const response = await fetch(card.summaryImage);
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = blobUrl;
+      link.href = card.summaryImage;
       link.download = `${card.playlistName || "journey"}.png`;
-      document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(blobUrl);
 
       toast({
         title: "Downloaded! 💾",
@@ -330,143 +309,95 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       });
     }
 
-// Update database with all image URLs after uploads
-try {
-  const updateData: Record<string, string | null> = {};
-  if (summaryImageUrl) updateData.summary_image = summaryImageUrl;
-  if (destinationPhotoUrl) updateData.destination_image_url = destinationPhotoUrl; // 🆕 correct column name
-  if (combinedImageUrl) updateData.combined_image_url = combinedImageUrl;
+    // Update database with all image URLs
+    try {
+      const updateData: Record<string, string | null> = {};
+      if (summaryImageUrl) updateData.summary_image = summaryImageUrl;
+      if (destinationPhotoUrl) updateData.destination_photo = destinationPhotoUrl;
+      if (combinedImageUrl) updateData.combined_image_url = combinedImageUrl;
 
-  if (Object.keys(updateData).length > 0) {
-    // journal_entries
-    const { error: journalError } = await supabase
-      .from("journal_entries")
-      .update(updateData)
-      .eq("id", card.id);
+      if (Object.keys(updateData).length > 0) {
+        const { error: journalError } = await supabase
+          .from("journal_entries")
+          .update(updateData)
+          .eq("id", card.id);
 
-    if (journalError) {
-      console.warn("[Supabase] journal_entries image update failed:", journalError); // 🆕
-    } else {
-      console.log("[Supabase] journal_entries image URLs saved:", updateData);        // 🆕
-    }
-
-    // mood_journeys mirror so PDE sees images as well            // 🆕
-    const { error: journeysError } = await supabase
-      .from("mood_journeys")
-      .upsert(
-        {
-          id: card.id,
-          summary_image: summaryImageUrl,
-          destination_image_url: destinationPhotoUrl,
-          combined_image_url: combinedImageUrl,
-        },
-        { onConflict: "id" },
-      );
-
-    if (journeysError) {
-      console.warn("[Supabase] mood_journeys image update failed:", journeysError);  // 🆕
-    } else {
-      console.log("[Supabase] mood_journeys image URLs synced");                     // 🆕
-    }
-  }
-} catch (err) {
-  console.log("[Supabase] Database update unavailable:", err);                       // 🆕
-}
-
-// Edit dialog open – loads all current values into the form
-const handleEditCard = (card: JournalCard) => {
-  setEditingCard(card);
-  setEditForm({
-    locationTitle: card.locationTitle || "",
-    playlistCategoryName: card.playlistCategoryName || "",
-    spotifyPlaylistName: card.spotifyPlaylistName || "",
-    spotifyPlaylistLink: card.spotifyPlaylistLink || "",          // 🆕 ensure link is loaded
-    walkDurationMins: card.walkDurationMins?.toString() || "",    // 🆕 ensure duration is loaded
-  });
-};
-
-// Save edits and sync to Supabase (journal_entries + mood_journeys)
-const handleSaveEdit = async () => {
-  if (!editingCard) return;
-
-  // Parse walk duration as number (or null if empty)         // 🆕
-  const walkDuration =
-    editForm.walkDurationMins && editForm.walkDurationMins.trim().length > 0
-      ? parseInt(editForm.walkDurationMins, 10)
-      : null;                                                  // 🆕
-
-  // Update local state + localStorage (UI side)               // 🆕 now includes link + duration
-  const updatedCards = journalCards.map((card) =>
-    card.id === editingCard.id
-      ? {
-          ...card,
-          locationTitle: editForm.locationTitle,
-          playlistCategoryName: editForm.playlistCategoryName,
-          spotifyPlaylistName: editForm.spotifyPlaylistName,
-          spotifyPlaylistLink: editForm.spotifyPlaylistLink,
-          walkDurationMins: walkDuration ?? undefined,
+        if (journalError) {
+          console.warn("[Supabase] journal_entries update failed:", journalError);
         }
-      : card,
-  );
-
-  setJournalCards(updatedCards);
-  localStorage.setItem("moodJournalEntries", JSON.stringify(updatedCards));
-  console.log("[JournalView] Card edited:", editingCard.id);
-
-  // Sync to Supabase                                          // 🆕
-  try {
-    // 1) journal_entries gets all edited fields
-    const { error: journalError } = await supabase
-      .from("journal_entries")
-      .update({
-        location_title: editForm.locationTitle,                // 🆕
-        playlist_category_name: editForm.playlistCategoryName, // 🆕
-        spotify_playlist_name: editForm.spotifyPlaylistName,   // 🆕
-        spotify_playlist_link: editForm.spotifyPlaylistLink || null, // 🆕
-        walk_duration_mins: walkDuration,                      // 🆕
-      })
-      .eq("id", editingCard.id);
-
-    if (journalError) {
-      console.warn("[Supabase] journal_entries update failed:", journalError); // 🆕
-    } else {
-      console.log("[Supabase] journal_entries updated successfully");          // 🆕
+      }
+    } catch (err) {
+      console.log("[Supabase] Database update unavailable:", err);
     }
+  };
 
-    // 2) mood_journeys mirror so Processing sees the same edits
-    const { error: journeysError } = await supabase.from("mood_journeys").upsert(
-      {
-        id: editingCard.id,
-        location_title: editForm.locationTitle,                // 🆕
-        playlist: editingCard.playlistName ?? null,           // existing playlist string
-        playlist_category_name: editForm.playlistCategoryName,
-        spotify_playlist_name: editForm.spotifyPlaylistName,
-        spotify_playlist_link: editForm.spotifyPlaylistLink || null,
-        walk_duration_mins: walkDuration,
-        category: editingCard.category,
-        mood_entries: editingCard.moodEntries,
-        timestamp: editingCard.timestamp,
-      },
-      { onConflict: "id" },                                    // 🆕 ensures update instead of insert duplicate
+  const handleEditCard = (card: JournalCard) => {
+    setEditingCard(card);
+    setEditForm({
+      locationTitle: card.locationTitle || "",
+      playlistCategoryName: card.playlistCategoryName || "",
+      spotifyPlaylistName: card.spotifyPlaylistName || "",
+      spotifyPlaylistLink: card.spotifyPlaylistLink || "",
+      walkDurationMins:
+        typeof card.walkDurationMins === "number" ? String(card.walkDurationMins) : "",
+    });
+  };
+
+  // Save edits to localStorage and Supabase
+  const handleSaveEdit = async () => {
+    if (!editingCard) return;
+
+    const walkDurationNumber =
+      editForm.walkDurationMins.trim().length > 0
+        ? parseInt(editForm.walkDurationMins, 10)
+        : null;
+
+    const updatedCards = journalCards.map((card) =>
+      card.id === editingCard.id
+        ? {
+            ...card,
+            locationTitle: editForm.locationTitle,
+            playlistCategoryName: editForm.playlistCategoryName,
+            spotifyPlaylistName: editForm.spotifyPlaylistName,
+            spotifyPlaylistLink: editForm.spotifyPlaylistLink,
+            walkDurationMins: walkDurationNumber ?? undefined,
+          }
+        : card,
     );
 
-    if (journeysError) {
-      console.warn("[Supabase] mood_journeys upsert failed:", journeysError); // 🆕
-    } else {
-      console.log("[Supabase] mood_journeys upserted successfully");          // 🆕
+    setJournalCards(updatedCards);
+    localStorage.setItem("moodJournalEntries", JSON.stringify(updatedCards));
+    console.log("[JournalView] Card edited:", editingCard.id);
+
+    // Sync to Supabase journal_entries table
+    try {
+      const { error: journalError } = await supabase
+        .from("journal_entries")
+        .update({
+          location_title: editForm.locationTitle,
+          playlist_category_name: editForm.playlistCategoryName,
+          spotify_playlist_name: editForm.spotifyPlaylistName,
+          spotify_playlist_link: editForm.spotifyPlaylistLink || null,
+          walk_duration_mins: walkDurationNumber,
+        })
+        .eq("id", editingCard.id);
+
+      if (journalError) {
+        console.warn("[Supabase] journal_entries update failed:", journalError);
+      } else {
+        console.log("[Supabase] journal_entries updated successfully");
+      }
+    } catch (err) {
+      console.log("[Supabase] Update unavailable:", err);
     }
-  } catch (err) {
-    console.log("[Supabase] Update unavailable:", err);                       // 🆕
-  }
 
-  toast({
-    title: "Updated! ✏️",
-    description: "Journey details saved to cloud",
-  });
+    toast({
+      title: "Updated! ✏️",
+      description: "Journey details updated",
+    });
 
-  setEditingCard(null);
-};
-
+    setEditingCard(null);
+  };
 
   const filteredCards = selectedCategory
     ? journalCards.filter((card) => card.category === selectedCategory)
@@ -529,10 +460,16 @@ const handleSaveEdit = async () => {
                   >
                     <Edit2 className="h-4 w-4" />
                   </Button>
-                  <h3 className="text-base font-medium pr-8">{card.locationTitle || "Unknown Location"}</h3>
-                  <p className="text-sm text-muted-foreground">{card.playlistCategoryName || card.category}</p>
+                  <h3 className="text-base font-medium pr-8">
+                    {card.locationTitle || "Unknown Location"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {card.playlistCategoryName || card.category}
+                  </p>
                   {card.spotifyPlaylistName && (
-                    <p className="text-xs text-muted-foreground italic">{card.spotifyPlaylistName} - Spotify</p>
+                    <p className="text-xs text-muted-foreground italic">
+                      {card.spotifyPlaylistName} - Spotify
+                    </p>
                   )}
 
                   {/* Mood Entries Summary */}
@@ -548,7 +485,9 @@ const handleSaveEdit = async () => {
                   {/* Destination Photo Gallery */}
                   {card.destinationPhoto && (
                     <div className="pt-2 border-t border-border">
-                      <p className="text-xs font-medium text-muted-foreground mb-2">Destination Photo</p>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">
+                        Destination Photo
+                      </p>
                       <div className="w-full h-32 rounded-md overflow-hidden border border-border">
                         <img
                           src={card.destinationPhoto}
@@ -561,7 +500,8 @@ const handleSaveEdit = async () => {
                   )}
 
                   <p className="text-sm text-muted-foreground pt-2">
-                    {new Date(card.timestamp).toLocaleDateString()} • {card.moodEntries.length} emotions •{" "}
+                    {new Date(card.timestamp).toLocaleDateString()} • {card.moodEntries.length}{" "}
+                    emotions •{" "}
                     <span className="font-medium capitalize">
                       {card.category === "peaceful" && "🌊 Peaceful"}
                       {card.category === "social" && "✨ Social"}
@@ -612,7 +552,7 @@ const handleSaveEdit = async () => {
             </Card>
           ))}
 
-          {/* Empty state placeholder cards */}
+          {/* Empty placeholder cards */}
           {[...Array(Math.max(1, 6 - filteredCards.length))].map((_, i) => (
             <Card
               key={`placeholder-${i}`}
@@ -628,7 +568,10 @@ const handleSaveEdit = async () => {
       </div>
 
       {/* Image Viewer Dialog */}
-      <Dialog open={selectedImage !== null} onOpenChange={(open) => !open && setSelectedImage(null)}>
+      <Dialog
+        open={selectedImage !== null}
+        onOpenChange={(open) => !open && setSelectedImage(null)}
+      >
         <DialogContent className="max-w-4xl p-0" aria-describedby="image-viewer-description">
           <DialogHeader className="sr-only">
             <DialogTitle>View Journey Image</DialogTitle>
@@ -657,21 +600,20 @@ const handleSaveEdit = async () => {
         </DialogContent>
       </Dialog>
 
-      {/* 🆕 Updated Edit Card Dialog with new fields */}
+      {/* Edit Card Dialog */}
       <Dialog open={editingCard !== null} onOpenChange={(open) => !open && setEditingCard(null)}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Journey Details</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {/* 🆕 Location Title - now properly saves user's custom name */}
             <div className="space-y-2">
-              <Label htmlFor="locationTitle">Location Name</Label>
+              <Label htmlFor="locationTitle">Location</Label>
               <Input
                 id="locationTitle"
                 value={editForm.locationTitle}
                 onChange={(e) => setEditForm({ ...editForm, locationTitle: e.target.value })}
-                placeholder="Enter your custom location name"
+                placeholder="Location name"
               />
             </div>
             <div className="space-y-2">
@@ -679,51 +621,45 @@ const handleSaveEdit = async () => {
               <Input
                 id="playlistCategoryName"
                 value={editForm.playlistCategoryName}
-                onChange={(e) => setEditForm({ ...editForm, playlistCategoryName: e.target.value })}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, playlistCategoryName: e.target.value })
+                }
                 placeholder="e.g., Coffeeshop Vibes"
               />
             </div>
-            {/* 🆕 NEW: Spotify Playlist Name field */}
             <div className="space-y-2">
-              <Label htmlFor="spotifyPlaylistName">Spotify Playlist Name</Label>
+              <Label htmlFor="spotifyPlaylistName">Spotify playlist name</Label>
               <Input
                 id="spotifyPlaylistName"
                 value={editForm.spotifyPlaylistName}
-                onChange={(e) => setEditForm({ ...editForm, spotifyPlaylistName: e.target.value })}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, spotifyPlaylistName: e.target.value })
+                }
                 placeholder="e.g., Guilty Pleasures"
               />
             </div>
-            {/* 🆕 NEW: Spotify Playlist Link field - displays as clickable hyperlink */}
             <div className="space-y-2">
-              <Label htmlFor="spotifyPlaylistLink">Spotify Playlist Link URL</Label>
+              <Label htmlFor="spotifyPlaylistLink">Spotify playlist link URL</Label>
               <Input
                 id="spotifyPlaylistLink"
                 value={editForm.spotifyPlaylistLink}
-                onChange={(e) => setEditForm({ ...editForm, spotifyPlaylistLink: e.target.value })}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, spotifyPlaylistLink: e.target.value })
+                }
                 placeholder="https://open.spotify.com/playlist/..."
               />
-              {/* 🆕 Show clickable link preview if URL is entered */}
-              {editForm.spotifyPlaylistLink && (
-                <a
-                  href={editForm.spotifyPlaylistLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline break-all"
-                >
-                  🔗 Open playlist in Spotify
-                </a>
-              )}
             </div>
-            {/* 🆕 NEW: Duration of Walk field */}
             <div className="space-y-2">
-              <Label htmlFor="walkDurationMins">Duration of Walk (mins)</Label>
+              <Label htmlFor="walkDurationMins">Duration of walk (mins)</Label>
               <Input
                 id="walkDurationMins"
                 type="number"
-                min="1"
+                min={0}
                 value={editForm.walkDurationMins}
-                onChange={(e) => setEditForm({ ...editForm, walkDurationMins: e.target.value })}
-                placeholder="e.g., 45"
+                onChange={(e) =>
+                  setEditForm({ ...editForm, walkDurationMins: e.target.value })
+                }
+                placeholder="e.g., 22"
               />
             </div>
           </div>
