@@ -119,20 +119,34 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       prefix: string,
     ): Promise<string | null> => {
       try {
+        // Get authenticated user for folder scoping
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          console.warn('[Storage] User not authenticated');
+          return null;
+        }
+
         const response = await fetch(base64);
         const blob = await response.blob();
 
-        const fileName = `${prefix}-${card.id}-${Date.now()}.png`;
+        // Upload to user-specific folder
+        const fileName = `${user.id}/${prefix}-${card.id}-${Date.now()}.png`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("journey-images")
           .upload(fileName, blob, { contentType: "image/png", upsert: true });
 
         if (!uploadError && uploadData) {
-          const { data: urlData } = supabase.storage
+          // Use signed URL with 1 hour expiration
+          const { data: urlData, error: signError } = await supabase.storage
             .from("journey-images")
-            .getPublicUrl(fileName);
-          console.log(`[Supabase] ${prefix} uploaded:`, urlData.publicUrl);
-          return urlData.publicUrl;
+            .createSignedUrl(fileName, 3600);
+          
+          if (signError || !urlData) {
+            console.warn(`[Storage] Failed to create signed URL:`, signError);
+            return null;
+          }
+          console.log(`[Supabase] ${prefix} uploaded with signed URL`);
+          return urlData.signedUrl;
         } else {
           console.warn(`[Supabase] ${prefix} upload failed:`, uploadError);
           return null;
@@ -269,23 +283,32 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         canvas.toBlob((b) => resolve(b!), "image/png", 1.0),
       );
 
-      const fileName = `combined-${card.id}-${Date.now()}.png`;
-      try {
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("journey-images")
-          .upload(fileName, blob, { contentType: "image/png", upsert: true });
-
-        if (!uploadError && uploadData) {
-          const { data: urlData } = supabase.storage
+      // Get authenticated user for folder scoping
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.warn('[Storage] User not authenticated for combined image');
+      } else {
+        const fileName = `${user.id}/combined-${card.id}-${Date.now()}.png`;
+        try {
+          const { data: uploadData, error: uploadError } = await supabase.storage
             .from("journey-images")
-            .getPublicUrl(fileName);
-          combinedImageUrl = urlData.publicUrl;
-          console.log("[Supabase] Combined image uploaded:", combinedImageUrl);
-        } else {
-          console.warn("[Supabase] Combined upload failed:", uploadError);
+            .upload(fileName, blob, { contentType: "image/png", upsert: true });
+
+          if (!uploadError && uploadData) {
+            const { data: urlData, error: signError } = await supabase.storage
+              .from("journey-images")
+              .createSignedUrl(fileName, 3600);
+            
+            if (!signError && urlData) {
+              combinedImageUrl = urlData.signedUrl;
+              console.log("[Supabase] Combined image uploaded with signed URL");
+            }
+          } else {
+            console.warn("[Supabase] Combined upload failed:", uploadError);
+          }
+        } catch (err) {
+          console.log("[Supabase] Combined upload unavailable:", err);
         }
-      } catch (err) {
-        console.log("[Supabase] Combined upload unavailable:", err);
       }
 
       const link = document.createElement("a");
