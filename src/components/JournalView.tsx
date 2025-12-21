@@ -370,6 +370,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     console.log("[JournalView] Card edited:", editingCard.id);
 
     // Sync to Supabase journal_entries table
+    let savedToCloud = false;
     try {
       const { error: journalError } = await supabase
         .from("journal_entries")
@@ -385,16 +386,24 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       if (journalError) {
         console.warn("[Supabase] journal_entries update failed:", journalError);
       } else {
-        console.log("[Supabase] journal_entries updated successfully");
+        console.log("[Supabase] journal_entries updated successfully for id:", editingCard.id);
+        savedToCloud = true;
       }
     } catch (err) {
       console.log("[Supabase] Update unavailable:", err);
     }
 
-    toast({
-      title: "Updated! ✏️",
-      description: "Journey details updated",
-    });
+    if (savedToCloud) {
+      toast({
+        title: "Updated! ✏️☁️",
+        description: "Journey details synced to cloud",
+      });
+    } else {
+      toast({
+        title: "Updated locally",
+        description: "Cloud sync pending - changes saved to device",
+      });
+    }
 
     setEditingCard(null);
   };
