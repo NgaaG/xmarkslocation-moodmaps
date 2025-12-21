@@ -270,23 +270,45 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       );
 
       const fileName = `combined-${card.id}-${Date.now()}.png`;
-      try {
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("journey-images")
-          .upload(fileName, blob, { contentType: "image/png", upsert: true });
+        // 2) mirror: mood_journeys (non‑blocking)
+    try {
+      const { data, error: journeysError } = await supabase
+        .from("mood_journeys")
+        .upsert(
+          {
+            id: editingCard.id,
+            location_title: editForm.locationTitle,
+            playlist: editingCard.playlistName ?? null,
+            playlist_category_name: editForm.playlistCategoryName,
+            spotify_playlist_name: editForm.spotifyPlaylistName,
+            spotify_playlist_link: editForm.spotifyPlaylistLink || null,
+            walk_duration_mins: walkDurationNumber,
+            category: editingCard.category,
+            mood_entries: editingCard.moodEntries,
+            timestamp: editingCard.timestamp,
+          },
+          { onConflict: "id" },
+        )
+        .select(); // so we can see what Supabase actually wrote
 
-        if (!uploadError && uploadData) {
-          const { data: urlData } = supabase.storage
-            .from("journey-images")
-            .getPublicUrl(fileName);
-          combinedImageUrl = urlData.publicUrl;
-          console.log("[Supabase] Combined image uploaded:", combinedImageUrl);
-        } else {
-          console.warn("[Supabase] Combined upload failed:", uploadError);
-        }
-      } catch (err) {
-        console.log("[Supabase] Combined upload unavailable:", err);
+      if (journeysError) {
+        console.warn(
+          "[Supabase] mood_journeys upsert failed (non-blocking):",
+          journeysError.message,
+          journeysError.code,
+          journeysError.details,
+        );
+      } else {
+        console.log(
+          "[Supabase] mood_journeys upserted successfully for id:",
+          editingCard.id,
+          "row:",
+          data,
+        );
       }
+    } catch (err) {
+      console.log("[Supabase] mood_journeys upsert unavailable (non-blocking):", err);
+    }
 
       const link = document.createElement("a");
       link.href = canvas.toDataURL("image/png", 1.0);
