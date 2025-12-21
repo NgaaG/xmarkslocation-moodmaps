@@ -343,17 +343,17 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     });
   };
 
-  // Save edits to localStorage and Supabase (journal_entries + mood_journeys)
+   // Save edits to localStorage and Supabase (journal_entries + mood_journeys)
   const handleSaveEdit = async () => {
     if (!editingCard) return;
 
-    // 1) Parse walk duration
+    // SAME: parse walk duration
     const walkDurationNumber =
       editForm.walkDurationMins.trim().length > 0
         ? parseInt(editForm.walkDurationMins, 10)
         : null;
 
-    // 2) Update local state + localStorage
+    // SAME: update local cards + localStorage
     const updatedCards = journalCards.map((card) =>
       card.id === editingCard.id
         ? {
@@ -371,7 +371,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     localStorage.setItem("moodJournalEntries", JSON.stringify(updatedCards));
     console.log("[JournalView] Card edited:", editingCard.id);
 
-    // 3) Primary write: journal_entries (controls cloud banner)
+    // SAME IDEA: journal_entries is still the primary write
     let savedToCloud = false;
     try {
       const { error: journalError } = await supabase
@@ -385,6 +385,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         })
         .eq("id", editingCard.id);
 
+      // CHANGED: cleaner error handling
       if (journalError) {
         console.warn(
           "[Supabase] journal_entries update failed:",
@@ -394,13 +395,13 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         );
       } else {
         console.log("[Supabase] journal_entries updated successfully for id:", editingCard.id);
-        savedToCloud = true;
+        savedToCloud = true; // SAME meaning, moved here
       }
     } catch (err) {
       console.log("[Supabase] journal_entries update unavailable:", err);
     }
 
-    // 4) Secondary mirror: mood_journeys (non‑blocking)
+    // NEW: mirror edits into mood_journeys, but do NOT touch savedToCloud
     try {
       const { error: journeysError } = await supabase.from("mood_journeys").upsert(
         {
@@ -432,7 +433,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       console.log("[Supabase] mood_journeys upsert unavailable (non-blocking):", err);
     }
 
-    // 5) Toast based only on journal_entries status
+    // SAME: toast logic, but now runs after both writes
     if (savedToCloud) {
       toast({
         title: "Updated! ✏️☁️",
@@ -447,7 +448,6 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
     setEditingCard(null);
   };
-
 
   const filteredCards = selectedCategory
     ? journalCards.filter((card) => card.category === selectedCategory)
