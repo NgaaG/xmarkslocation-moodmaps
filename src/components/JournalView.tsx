@@ -270,45 +270,23 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       );
 
       const fileName = `combined-${card.id}-${Date.now()}.png`;
-        // 2) mirror: mood_journeys (non‑blocking)
-    try {
-      const { data, error: journeysError } = await supabase
-        .from("mood_journeys")
-        .upsert(
-          {
-            id: editingCard.id,
-            location_title: editForm.locationTitle,
-            playlist: editingCard.playlistName ?? null,
-            playlist_category_name: editForm.playlistCategoryName,
-            spotify_playlist_name: editForm.spotifyPlaylistName,
-            spotify_playlist_link: editForm.spotifyPlaylistLink || null,
-            walk_duration_mins: walkDurationNumber,
-            category: editingCard.category,
-            mood_entries: editingCard.moodEntries,
-            timestamp: editingCard.timestamp,
-          },
-          { onConflict: "id" },
-        )
-        .select(); // so we can see what Supabase actually wrote
+      try {
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("journey-images")
+          .upload(fileName, blob, { contentType: "image/png", upsert: true });
 
-      if (journeysError) {
-        console.warn(
-          "[Supabase] mood_journeys upsert failed (non-blocking):",
-          journeysError.message,
-          journeysError.code,
-          journeysError.details,
-        );
-      } else {
-        console.log(
-          "[Supabase] mood_journeys upserted successfully for id:",
-          editingCard.id,
-          "row:",
-          data,
-        );
+        if (!uploadError && uploadData) {
+          const { data: urlData } = supabase.storage
+            .from("journey-images")
+            .getPublicUrl(fileName);
+          combinedImageUrl = urlData.publicUrl;
+          console.log("[Supabase] Combined image uploaded:", combinedImageUrl);
+        } else {
+          console.warn("[Supabase] Combined upload failed:", uploadError);
+        }
+      } catch (err) {
+        console.log("[Supabase] Combined upload unavailable:", err);
       }
-    } catch (err) {
-      console.log("[Supabase] mood_journeys upsert unavailable (non-blocking):", err);
-    }
 
       const link = document.createElement("a");
       link.href = canvas.toDataURL("image/png", 1.0);
@@ -420,26 +398,23 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       console.log("[Supabase] journal_entries update unavailable:", err);
     }
 
-     // 2) mirror: mood_journeys (non‑blocking)
+    // 2) mirror: mood_journeys (non‑blocking)
     try {
-      const { data, error: journeysError } = await supabase
-        .from("mood_journeys")
-        .upsert(
-          {
-            id: editingCard.id,
-            location_title: editForm.locationTitle,
-            playlist: editingCard.playlistName ?? null,
-            playlist_category_name: editForm.playlistCategoryName,
-            spotify_playlist_name: editForm.spotifyPlaylistName,
-            spotify_playlist_link: editForm.spotifyPlaylistLink || null,
-            walk_duration_mins: walkDurationNumber,
-            category: editingCard.category,
-            mood_entries: editingCard.moodEntries,
-            timestamp: editingCard.timestamp,
-          },
-          { onConflict: "id" },
-        )
-        .select(); // so we can see what Supabase actually wrote
+      const { error: journeysError } = await supabase.from("mood_journeys").upsert(
+        {
+          id: editingCard.id,
+          location_title: editForm.locationTitle,
+          playlist: editingCard.playlistName ?? null,
+          playlist_category_name: editForm.playlistCategoryName,
+          spotify_playlist_name: editForm.spotifyPlaylistName,
+          spotify_playlist_link: editForm.spotifyPlaylistLink || null,
+          walk_duration_mins: walkDurationNumber,
+          category: editingCard.category,
+          mood_entries: editingCard.moodEntries,
+          timestamp: editingCard.timestamp,
+        },
+        { onConflict: "id" },
+      );
 
       if (journeysError) {
         console.warn(
@@ -449,17 +424,26 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
           journeysError.details,
         );
       } else {
-        console.log(
-          "[Supabase] mood_journeys upserted successfully for id:",
-          editingCard.id,
-          "row:",
-          data,
-        );
+        console.log("[Supabase] mood_journeys upserted successfully for id:", editingCard.id);
       }
     } catch (err) {
       console.log("[Supabase] mood_journeys upsert unavailable (non-blocking):", err);
     }
 
+    if (savedToCloud) {
+      toast({
+        title: "Updated! ✏️☁️",
+        description: "Journey details synced to cloud",
+      });
+    } else {
+      toast({
+        title: "Updated locally",
+        description: "Cloud sync pending - changes saved to device",
+      });
+    }
+
+    setEditingCard(null);
+  };
 
   const filteredCards = selectedCategory
     ? journalCards.filter((card) => card.category === selectedCategory)
