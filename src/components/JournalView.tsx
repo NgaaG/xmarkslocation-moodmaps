@@ -330,95 +330,142 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       });
     }
 
-    // Update database with all image URLs
-    try {
-      const updateData: Record<string, string | null> = {};
-      if (summaryImageUrl) updateData.summary_image = summaryImageUrl;
-      if (destinationPhotoUrl) updateData.destination_photo = destinationPhotoUrl;
-      if (combinedImageUrl) updateData.combined_image_url = combinedImageUrl;
+   // Update database with all image URLs after uploads
+try {
+  const updateData: Record<string, string | null> = {};
+  if (summaryImageUrl) updateData.summary_image = summaryImageUrl;
+  if (destinationPhotoUrl) updateData.destination_image_url = destinationPhotoUrl; // note column name
+  if (combinedImageUrl) updateData.combined_image_url = combinedImageUrl;
 
-      if (Object.keys(updateData).length > 0) {
-        const { error } = await supabase
-          .from("journal_entries")
-          .update(updateData)
-          .eq("id", card.id);
+  if (Object.keys(updateData).length > 0) {
+    // journal_entries
+    const { error: journalError } = await supabase
+      .from("journal_entries")
+      .update(updateData)
+      .eq("id", card.id);
 
-        if (error) {
-          console.warn("[Supabase] Database update failed:", error);
-        } else {
-          console.log("[Supabase] All image URLs saved to database:", updateData);
-        }
-      }
-    } catch (err) {
-      console.log("[Supabase] Database update unavailable:", err);
+    if (journalError) {
+      console.warn("[Supabase] journal_entries image update failed:", journalError);
+    } else {
+      console.log("[Supabase] journal_entries image URLs saved:", updateData);
     }
-  };
 
-  // 🆕 Updated to load all new fields including spotifyPlaylistLink and walkDurationMins
-  const handleEditCard = (card: JournalCard) => {
-    setEditingCard(card);
-    setEditForm({
-      locationTitle: card.locationTitle || "",
-      playlistCategoryName: card.playlistCategoryName || "",
-      spotifyPlaylistName: card.spotifyPlaylistName || "", // 🆕 Playlist name
-      spotifyPlaylistLink: card.spotifyPlaylistLink || "", // 🆕 Playlist URL link
-      walkDurationMins: card.walkDurationMins?.toString() || "", // 🆕 Walk duration
-    });
-  };
+    // mood_journeys mirror
+    const { error: journeysError } = await supabase
+      .from("mood_journeys")
+      .upsert(
+        {
+          id: card.id,
+          summary_image: summaryImageUrl,
+          destination_image_url: destinationPhotoUrl,
+          combined_image_url: combinedImageUrl,
+        },
+        { onConflict: "id" },
+      );
 
-  // 🆕 Updated handleSaveEdit to save all new fields to localStorage AND Supabase, then close dialog
-  const handleSaveEdit = async () => {
-    if (!editingCard) return;
+    if (journeysError) {
+      console.warn("[Supabase] mood_journeys image update failed:", journeysError);
+    } else {
+      console.log("[Supabase] mood_journeys image URLs synced");
+    }
+  }
+} catch (err) {
+  console.log("[Supabase] Database update unavailable:", err);
+}
 
-    // 🆕 Parse walk duration as number (or undefined if empty)
-    const walkDuration = editForm.walkDurationMins ? parseInt(editForm.walkDurationMins, 10) : undefined;
+ // Edit dialog open (unchanged, shown for context of editForm)
+const handleEditCard = (card: JournalCard) => {
+  setEditingCard(card);
+  setEditForm({
+    locationTitle: card.locationTitle || "",
+    playlistCategoryName: card.playlistCategoryName || "",
+    spotifyPlaylistName: card.spotifyPlaylistName || "",
+    spotifyPlaylistLink: card.spotifyPlaylistLink || "",
+    walkDurationMins: card.walkDurationMins?.toString() || "",
+  });
+};
 
-    const updatedCards = journalCards.map((card) =>
-      card.id === editingCard.id
-        ? {
-            ...card,
-            locationTitle: editForm.locationTitle, // 🆕 Now properly saves user's custom location
-            playlistCategoryName: editForm.playlistCategoryName,
-            spotifyPlaylistName: editForm.spotifyPlaylistName, // 🆕 Spotify playlist name
-            spotifyPlaylistLink: editForm.spotifyPlaylistLink, // 🆕 Spotify playlist URL
-            walkDurationMins: walkDuration, // 🆕 Walk duration in mins
-          }
-        : card,
+// Save edits and sync to Supabase (journal_entries + mood_journeys)
+const handleSaveEdit = async () => {
+  if (!editingCard) return;
+
+  // Parse walk duration as number (or null if empty)
+  const walkDuration =
+    editForm.walkDurationMins && editForm.walkDurationMins.trim().length > 0
+      ? parseInt(editForm.walkDurationMins, 10)
+      : null;
+
+  // Update local state + localStorage
+  const updatedCards = journalCards.map((card) =>
+    card.id === editingCard.id
+      ? {
+          ...card,
+          locationTitle: editForm.locationTitle,
+          playlistCategoryName: editForm.playlistCategoryName,
+          spotifyPlaylistName: editForm.spotifyPlaylistName,
+          spotifyPlaylistLink: editForm.spotifyPlaylistLink,
+          walkDurationMins: walkDuration ?? undefined,
+        }
+      : card,
+  );
+
+  setJournalCards(updatedCards);
+  localStorage.setItem("moodJournalEntries", JSON.stringify(updatedCards));
+  console.log("[JournalView] Card edited:", editingCard.id);
+
+  // Sync to Supabase
+  try {
+    // 1) journal_entries
+    const { error: journalError } = await supabase
+      .from("journal_entries")
+      .update({
+        location_title: editForm.locationTitle,
+        playlist_category_name: editForm.playlistCategoryName,
+        spotify_playlist_name: editForm.spotifyPlaylistName,
+        spotify_playlist_link: editForm.spotifyPlaylistLink || null,
+        walk_duration_mins: walkDuration,
+      })
+      .eq("id", editingCard.id);
+
+    if (journalError) {
+      console.warn("[Supabase] journal_entries update failed:", journalError);
+    } else {
+      console.log("[Supabase] journal_entries updated successfully");
+    }
+
+    // 2) mood_journeys mirror so Processing sees edits
+    const { error: journeysError } = await supabase.from("mood_journeys").upsert(
+      {
+        id: editingCard.id,
+        location_title: editForm.locationTitle,
+        playlist: editingCard.playlistName ?? null,
+        playlist_category_name: editForm.playlistCategoryName,
+        spotify_playlist_name: editForm.spotifyPlaylistName,
+        spotify_playlist_link: editForm.spotifyPlaylistLink || null,
+        walk_duration_mins: walkDuration,
+        category: editingCard.category,
+        mood_entries: editingCard.moodEntries,
+        timestamp: editingCard.timestamp,
+      },
+      { onConflict: "id" },
     );
 
-    setJournalCards(updatedCards);
-    localStorage.setItem("moodJournalEntries", JSON.stringify(updatedCards));
-    console.log('[JournalView] Card edited:', editingCard.id);
-    
-    // 🆕 Sync ALL fields to Supabase including new ones
-    try {
-      const { error } = await supabase
-        .from("journal_entries")
-        .update({
-          location_title: editForm.locationTitle,
-          playlist_category_name: editForm.playlistCategoryName,
-          spotify_playlist_name: editForm.spotifyPlaylistName, // 🆕 Playlist name
-          walk_duration_mins: walkDuration || null, // 🆕 Walk duration
-        })
-        .eq("id", editingCard.id);
-
-      if (error) {
-        console.warn('[Supabase] Update failed:', error);
-      } else {
-        console.log('[Supabase] Card updated successfully with all fields');
-      }
-    } catch (err) {
-      console.log('[Supabase] Update unavailable:', err);
+    if (journeysError) {
+      console.warn("[Supabase] mood_journeys upsert failed:", journeysError);
+    } else {
+      console.log("[Supabase] mood_journeys upserted successfully");
     }
+  } catch (err) {
+    console.log("[Supabase] Update unavailable:", err);
+  }
 
-    // 🆕 Show feedback and close dialog immediately
-    toast({
-      title: "Updated! ✏️",
-      description: "Journey details saved to cloud",
-    });
+  toast({
+    title: "Updated! ✏️",
+    description: "Journey details saved to cloud",
+  });
 
-    setEditingCard(null); // 🆕 Closes the dialog
-  };
+  setEditingCard(null);
+};
 
   const filteredCards = selectedCategory
     ? journalCards.filter((card) => card.category === selectedCategory)
