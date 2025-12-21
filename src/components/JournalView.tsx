@@ -330,11 +330,11 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       });
     }
 
-   // Update database with all image URLs after uploads
+// Update database with all image URLs after uploads
 try {
   const updateData: Record<string, string | null> = {};
   if (summaryImageUrl) updateData.summary_image = summaryImageUrl;
-  if (destinationPhotoUrl) updateData.destination_image_url = destinationPhotoUrl; // note column name
+  if (destinationPhotoUrl) updateData.destination_image_url = destinationPhotoUrl; // 🆕 correct column name
   if (combinedImageUrl) updateData.combined_image_url = combinedImageUrl;
 
   if (Object.keys(updateData).length > 0) {
@@ -345,12 +345,12 @@ try {
       .eq("id", card.id);
 
     if (journalError) {
-      console.warn("[Supabase] journal_entries image update failed:", journalError);
+      console.warn("[Supabase] journal_entries image update failed:", journalError); // 🆕
     } else {
-      console.log("[Supabase] journal_entries image URLs saved:", updateData);
+      console.log("[Supabase] journal_entries image URLs saved:", updateData);        // 🆕
     }
 
-    // mood_journeys mirror
+    // mood_journeys mirror so PDE sees images as well            // 🆕
     const { error: journeysError } = await supabase
       .from("mood_journeys")
       .upsert(
@@ -364,24 +364,24 @@ try {
       );
 
     if (journeysError) {
-      console.warn("[Supabase] mood_journeys image update failed:", journeysError);
+      console.warn("[Supabase] mood_journeys image update failed:", journeysError);  // 🆕
     } else {
-      console.log("[Supabase] mood_journeys image URLs synced");
+      console.log("[Supabase] mood_journeys image URLs synced");                     // 🆕
     }
   }
 } catch (err) {
-  console.log("[Supabase] Database update unavailable:", err);
+  console.log("[Supabase] Database update unavailable:", err);                       // 🆕
 }
 
- // Edit dialog open (unchanged, shown for context of editForm)
+// Edit dialog open – loads all current values into the form
 const handleEditCard = (card: JournalCard) => {
   setEditingCard(card);
   setEditForm({
     locationTitle: card.locationTitle || "",
     playlistCategoryName: card.playlistCategoryName || "",
     spotifyPlaylistName: card.spotifyPlaylistName || "",
-    spotifyPlaylistLink: card.spotifyPlaylistLink || "",
-    walkDurationMins: card.walkDurationMins?.toString() || "",
+    spotifyPlaylistLink: card.spotifyPlaylistLink || "",          // 🆕 ensure link is loaded
+    walkDurationMins: card.walkDurationMins?.toString() || "",    // 🆕 ensure duration is loaded
   });
 };
 
@@ -389,13 +389,13 @@ const handleEditCard = (card: JournalCard) => {
 const handleSaveEdit = async () => {
   if (!editingCard) return;
 
-  // Parse walk duration as number (or null if empty)
+  // Parse walk duration as number (or null if empty)         // 🆕
   const walkDuration =
     editForm.walkDurationMins && editForm.walkDurationMins.trim().length > 0
       ? parseInt(editForm.walkDurationMins, 10)
-      : null;
+      : null;                                                  // 🆕
 
-  // Update local state + localStorage
+  // Update local state + localStorage (UI side)               // 🆕 now includes link + duration
   const updatedCards = journalCards.map((card) =>
     card.id === editingCard.id
       ? {
@@ -413,32 +413,32 @@ const handleSaveEdit = async () => {
   localStorage.setItem("moodJournalEntries", JSON.stringify(updatedCards));
   console.log("[JournalView] Card edited:", editingCard.id);
 
-  // Sync to Supabase
+  // Sync to Supabase                                          // 🆕
   try {
-    // 1) journal_entries
+    // 1) journal_entries gets all edited fields
     const { error: journalError } = await supabase
       .from("journal_entries")
       .update({
-        location_title: editForm.locationTitle,
-        playlist_category_name: editForm.playlistCategoryName,
-        spotify_playlist_name: editForm.spotifyPlaylistName,
-        spotify_playlist_link: editForm.spotifyPlaylistLink || null,
-        walk_duration_mins: walkDuration,
+        location_title: editForm.locationTitle,                // 🆕
+        playlist_category_name: editForm.playlistCategoryName, // 🆕
+        spotify_playlist_name: editForm.spotifyPlaylistName,   // 🆕
+        spotify_playlist_link: editForm.spotifyPlaylistLink || null, // 🆕
+        walk_duration_mins: walkDuration,                      // 🆕
       })
       .eq("id", editingCard.id);
 
     if (journalError) {
-      console.warn("[Supabase] journal_entries update failed:", journalError);
+      console.warn("[Supabase] journal_entries update failed:", journalError); // 🆕
     } else {
-      console.log("[Supabase] journal_entries updated successfully");
+      console.log("[Supabase] journal_entries updated successfully");          // 🆕
     }
 
-    // 2) mood_journeys mirror so Processing sees edits
+    // 2) mood_journeys mirror so Processing sees the same edits
     const { error: journeysError } = await supabase.from("mood_journeys").upsert(
       {
         id: editingCard.id,
-        location_title: editForm.locationTitle,
-        playlist: editingCard.playlistName ?? null,
+        location_title: editForm.locationTitle,                // 🆕
+        playlist: editingCard.playlistName ?? null,           // existing playlist string
         playlist_category_name: editForm.playlistCategoryName,
         spotify_playlist_name: editForm.spotifyPlaylistName,
         spotify_playlist_link: editForm.spotifyPlaylistLink || null,
@@ -447,16 +447,16 @@ const handleSaveEdit = async () => {
         mood_entries: editingCard.moodEntries,
         timestamp: editingCard.timestamp,
       },
-      { onConflict: "id" },
+      { onConflict: "id" },                                    // 🆕 ensures update instead of insert duplicate
     );
 
     if (journeysError) {
-      console.warn("[Supabase] mood_journeys upsert failed:", journeysError);
+      console.warn("[Supabase] mood_journeys upsert failed:", journeysError); // 🆕
     } else {
-      console.log("[Supabase] mood_journeys upserted successfully");
+      console.log("[Supabase] mood_journeys upserted successfully");          // 🆕
     }
   } catch (err) {
-    console.log("[Supabase] Update unavailable:", err);
+    console.log("[Supabase] Update unavailable:", err);                       // 🆕
   }
 
   toast({
@@ -466,6 +466,7 @@ const handleSaveEdit = async () => {
 
   setEditingCard(null);
 };
+
 
   const filteredCards = selectedCategory
     ? journalCards.filter((card) => card.category === selectedCategory)
