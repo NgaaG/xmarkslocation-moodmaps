@@ -7,7 +7,7 @@ import FilterBar from "./FilterBar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabaseClient";
 
 interface JournalViewProps {
   selectedCategory: string | null;
@@ -19,9 +19,9 @@ interface JournalCard {
   locationTitle?: string;
   playlistName?: string;
   playlistCategoryName?: string;
-  spotifyPlaylistName?: string;
-  spotifyPlaylistLink?: string;
-  walkDurationMins?: number;
+  spotifyPlaylistName?: string; // 🆕 Spotify playlist NAME (e.g., "Guilty Pleasures")
+  spotifyPlaylistLink?: string; // 🆕 Spotify playlist URL
+  walkDurationMins?: number;    // 🆕 Duration of walk in minutes
   category: string;
   moodEntries: Array<{
     stage: string;
@@ -45,6 +45,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [editingCard, setEditingCard] = useState<JournalCard | null>(null);
 
+  // 🆕 edit form now includes spotifyPlaylistLink + walkDurationMins
   const [editForm, setEditForm] = useState({
     locationTitle: "",
     playlistCategoryName: "",
@@ -62,6 +63,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
     loadJournalCards();
 
+    // Listen for new journal entries
     const handleStorageChange = () => {
       loadJournalCards();
     };
@@ -114,6 +116,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     let summaryImageUrl: string | null = null;
     let combinedImageUrl: string | null = null;
 
+    // Helper function to upload base64 image to Supabase storage
     const uploadBase64ToStorage = async (
       base64: string,
       prefix: string,
@@ -143,12 +146,15 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       }
     };
 
+    // Upload summary_image to storage
     summaryImageUrl = await uploadBase64ToStorage(card.summaryImage, "summary");
 
+    // Upload destination_photo to storage (if exists)
     if (card.destinationPhoto) {
       destinationPhotoUrl = await uploadBase64ToStorage(card.destinationPhoto, "destination");
     }
 
+    // If there's a destination photo, create vertical collage
     if (card.destinationPhoto) {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
@@ -204,9 +210,9 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       const destY = summaryY + summaryHeight + gap;
       ctx.drawImage(destImg, destX, destY, destWidth, destHeight);
 
-      // Expanded metadata block for 5 lines
+      // 🆕 Expanded metadata block for 5 lines
       const textPadding = 20;
-      const textHeight = 180;
+      const textHeight = 180; // 🆕 was 100
       const textY = canvasLogicalHeight - textHeight - padding;
 
       ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
@@ -216,7 +222,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
 
-      // Line 1: location title
+      // 🆕 line 1: location title
       ctx.font = "bold 28px Inter, system-ui, sans-serif";
       ctx.fillText(
         card.locationTitle || "Unknown Location",
@@ -224,7 +230,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         textY + textPadding,
       );
 
-      // Line 2: playlist category
+      // 🆕 line 2: playlist category
       ctx.font = "20px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#DDDDDD";
       ctx.fillText(
@@ -233,7 +239,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         textY + textPadding + 36,
       );
 
-      // Line 3: Spotify playlist name
+      // 🆕 line 3: Spotify playlist name
       ctx.font = "italic 18px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#CCCCCC";
       ctx.fillText(
@@ -242,7 +248,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         textY + textPadding + 64,
       );
 
-      // Line 4: Spotify playlist link (truncated)
+      // 🆕 line 4: Spotify playlist link (truncated)
       ctx.font = "16px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#AAAAAA";
       const linkText =
@@ -255,7 +261,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         textY + textPadding + 92,
       );
 
-      // Line 5: walk duration
+      // 🆕 line 5: walk duration
       ctx.font = "18px Inter, system-ui, sans-serif";
       ctx.fillStyle = "#BBBBBB";
       ctx.fillText(
@@ -309,14 +315,15 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       });
     }
 
-    // Update database with all image URLs
+    // 🆕 Update database with all image URLs in BOTH tables
     try {
       const updateData: Record<string, string | null> = {};
       if (summaryImageUrl) updateData.summary_image = summaryImageUrl;
-      if (destinationPhotoUrl) updateData.destination_photo = destinationPhotoUrl;
+      if (destinationPhotoUrl) updateData.destination_image_url = destinationPhotoUrl;
       if (combinedImageUrl) updateData.combined_image_url = combinedImageUrl;
 
       if (Object.keys(updateData).length > 0) {
+        // journal_entries (existing)
         const { error: journalError } = await supabase
           .from("journal_entries")
           .update(updateData)
@@ -324,6 +331,25 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
 
         if (journalError) {
           console.warn("[Supabase] journal_entries update failed:", journalError);
+        }
+
+        // 🆕 mirror into mood_journeys for live map
+        const { error: journeysError } = await supabase
+          .from("mood_journeys")
+          .upsert(
+            {
+              id: card.id,
+              summary_image: summaryImageUrl,
+              destination_image_url: destinationPhotoUrl,
+              combined_image_url: combinedImageUrl,
+            },
+            { onConflict: "id" }, // 🆕 update existing row
+          );
+
+        if (journeysError) {
+          console.warn("[Supabase] mood_journeys image update failed:", journeysError);
+        } else {
+          console.log("[Supabase] mood_journeys image URLs synced");
         }
       }
     } catch (err) {
@@ -337,13 +363,12 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
       locationTitle: card.locationTitle || "",
       playlistCategoryName: card.playlistCategoryName || "",
       spotifyPlaylistName: card.spotifyPlaylistName || "",
-      spotifyPlaylistLink: card.spotifyPlaylistLink || "",
+      spotifyPlaylistLink: card.spotifyPlaylistLink || "", // 🆕 prefill
       walkDurationMins:
         typeof card.walkDurationMins === "number" ? String(card.walkDurationMins) : "",
     });
   };
 
-  // Save edits to localStorage and Supabase journal_entries
   const handleSaveEdit = async () => {
     if (!editingCard) return;
 
@@ -359,8 +384,8 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
             locationTitle: editForm.locationTitle,
             playlistCategoryName: editForm.playlistCategoryName,
             spotifyPlaylistName: editForm.spotifyPlaylistName,
-            spotifyPlaylistLink: editForm.spotifyPlaylistLink,
-            walkDurationMins: walkDurationNumber ?? undefined,
+            spotifyPlaylistLink: editForm.spotifyPlaylistLink, // 🆕
+            walkDurationMins: walkDurationNumber ?? undefined, // 🆕
           }
         : card,
     );
@@ -369,37 +394,54 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     localStorage.setItem("moodJournalEntries", JSON.stringify(updatedCards));
     console.log("[JournalView] Card edited:", editingCard.id);
 
-    // Update journal_entries in Supabase
     try {
+      // Existing: update journal_entries
       const { error: journalError } = await supabase
         .from("journal_entries")
         .update({
           location_title: editForm.locationTitle,
           playlist_category_name: editForm.playlistCategoryName,
           spotify_playlist_name: editForm.spotifyPlaylistName,
-          spotify_playlist_link: editForm.spotifyPlaylistLink || null,
-          walk_duration_mins: walkDurationNumber,
+          spotify_playlist_link: editForm.spotifyPlaylistLink, // 🆕
+          walk_duration_mins: walkDurationNumber,              // 🆕
         })
         .eq("id", editingCard.id);
 
       if (journalError) {
-        console.warn(
-          "[Supabase] journal_entries update failed:",
-          journalError.message,
-          journalError.code,
-          journalError.details,
-        );
+        console.warn("[Supabase] journal_entries update failed:", journalError);
       } else {
-        console.log("[Supabase] journal_entries updated successfully for id:", editingCard.id);
+        console.log("[Supabase] journal_entries updated successfully");
+      }
+
+      // 🆕 New: upsert into mood_journeys for live map
+      const { error: journeysError } = await supabase.from("mood_journeys").upsert(
+        {
+          id: editingCard.id,
+          location_title: editForm.locationTitle,
+          playlist: editingCard.playlistName ?? null,
+          playlist_category_name: editForm.playlistCategoryName,
+          spotify_playlist_name: editForm.spotifyPlaylistName,
+          spotify_playlist_link: editForm.spotifyPlaylistLink,
+          walk_duration_mins: walkDurationNumber,
+          category: editingCard.category,
+          mood_entries: editingCard.moodEntries,
+          timestamp: editingCard.timestamp,
+        },
+        { onConflict: "id" },
+      );
+
+      if (journeysError) {
+        console.warn("[Supabase] mood_journeys upsert failed:", journeysError);
+      } else {
+        console.log("[Supabase] mood_journeys upserted successfully");
       }
     } catch (err) {
-      console.warn("[Supabase] journal_entries update unavailable:", err);
+      console.log("[Supabase] Update unavailable:", err);
     }
 
-    // Always show cloud synced toast
     toast({
-      title: "Updated! ✏️☁️",
-      description: "Journey details synced to cloud",
+      title: "Updated! ✏️",
+      description: "Journey details updated",
     });
 
     setEditingCard(null);

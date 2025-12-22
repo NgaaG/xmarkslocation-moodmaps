@@ -7,7 +7,7 @@ import { X, Save, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CustomEmoji from "./CustomEmoji";
 import html2canvas from "html2canvas";
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabaseClient';
 
 interface MoodVisualizerProps {
   category: SpotCategory;
@@ -702,11 +702,8 @@ const MoodVisualizer = ({ category, isPlaying = true }: MoodVisualizerProps) => 
 
 try {
     // ✅ STEP 2: Create journey object matching Supabase schema
-    // Generate a proper UUID that will be used both locally and in Supabase
-    const entryId = crypto.randomUUID();
-    
     const journalEntry = {
-      id: entryId,
+      id: "journey-" + Date.now(),
       locationTitle: locationTitle,
       latitude: 0,
       longitude: 0,
@@ -725,44 +722,7 @@ try {
       summaryData: summary
     };
 
-    // ✅ STEP 3: Convert mood entries timestamps to ISO strings for JSON compatibility
-    const moodEntriesJson = journalEntry.moodEntries.map(entry => ({
-      stage: entry.stage,
-      emotion: entry.emotion,
-      timestamp: entry.timestamp instanceof Date ? entry.timestamp.toISOString() : entry.timestamp
-    }));
-
-    // ✅ STEP 4: Save to Supabase FIRST with the generated UUID
-    let savedToCloud = false;
-    try {
-      const { data, error } = await supabase
-        .from("journal_entries")
-        .insert([{
-          id: entryId, // Use the same ID for both local and cloud
-          user_id: crypto.randomUUID(),
-          location_title: journalEntry.locationTitle,
-          playlist_name: journalEntry.playlist,
-          playlist_category_name: journalEntry.playlistCategoryName,
-          spotify_playlist_name: journalEntry.spotifyPlaylistName,
-          category: journalEntry.category,
-          mood_entries: moodEntriesJson,
-          summary_image: journalEntry.summaryImage || null,
-          destination_photo: journalEntry.destinationPhoto || null,
-        }])
-        .select()
-        .single();
-
-      if (error) {
-        console.warn('[Supabase] Insert warning:', error);
-      } else {
-        console.log('[Supabase] Journey inserted successfully with id:', entryId);
-        savedToCloud = true;
-      }
-    } catch (supabaseErr) {
-      console.log('[Supabase] Not configured or unavailable:', supabaseErr);
-    }
-
-    // ✅ STEP 5: Save to localStorage with the same ID
+    // ✅ STEP 3: Save to localStorage (primary backup - always works)
     const existingEntries = JSON.parse(localStorage.getItem("moodJournalEntries") || "[]");
     existingEntries.push(journalEntry);
     localStorage.setItem("moodJournalEntries", JSON.stringify(existingEntries));
@@ -771,15 +731,41 @@ try {
     // Trigger storage event for journal view
     window.dispatchEvent(new Event("storage"));
 
-    if (savedToCloud) {
+   // ✅ STEP 4: Sync to Supabase (cloud backup)
+    try {
+      const { error } = await supabase
+        .from("mood_journeys")
+        .insert({
+          id: journalEntry.id,
+          location_title: journalEntry.locationTitle,
+          latitude: journalEntry.latitude,
+          longitude: journalEntry.longitude,
+          playlist: journalEntry.playlist,
+          playlist_category_name: journalEntry.playlistCategoryName,
+          spotify_playlist_name: journalEntry.spotifyPlaylistName,
+          category: journalEntry.category,
+          mood_entries: journalEntry.moodEntries,
+          timestamp: journalEntry.timestamp
+        });
+
+      if (error) {
+        console.warn('[Supabase] Insert warning:', error);
+        toast({
+          title: "Saved locally (cloud pending)",
+          description: "Your journey was saved to your device. Cloud sync will retry."
+        });
+      } else {
+        console.log('[Supabase] Journey inserted successfully');
+        toast({
+          title: "Journey saved! ☁️",
+          description: "Synced to cloud and your device"
+        });
+      }
+    } catch (supabaseErr) {
+      console.log('[Supabase] Not configured or unavailable:', supabaseErr);
       toast({
-        title: "Journey saved! ☁️",
-        description: "Synced to cloud and your device"
-      });
-    } else {
-      toast({
-        title: "Saved locally (cloud pending)",
-        description: "Your journey was saved to your device. Cloud sync will retry."
+        title: "Saved locally",
+        description: "Cloud sync unavailable, but your journey is safe on your device"
       });
     }
 
