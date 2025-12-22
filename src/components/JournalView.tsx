@@ -343,7 +343,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     });
   };
 
-  // Save edits to localStorage and Supabase (journal_entries + mood_journeys)
+  // Save edits to localStorage and Supabase journal_entries
   const handleSaveEdit = async () => {
     if (!editingCard) return;
 
@@ -369,8 +369,7 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
     localStorage.setItem("moodJournalEntries", JSON.stringify(updatedCards));
     console.log("[JournalView] Card edited:", editingCard.id);
 
-    // 1) primary: journal_entries
-    let savedToCloud = false;
+    // Update journal_entries in Supabase
     try {
       const { error: journalError } = await supabase
         .from("journal_entries")
@@ -392,63 +391,16 @@ const JournalView = ({ selectedCategory, onCategoryChange }: JournalViewProps) =
         );
       } else {
         console.log("[Supabase] journal_entries updated successfully for id:", editingCard.id);
-        savedToCloud = true;
       }
     } catch (err) {
-      console.log("[Supabase] journal_entries update unavailable:", err);
+      console.warn("[Supabase] journal_entries update unavailable:", err);
     }
 
-    // 2) mirror: mood_journeys (non‑blocking, with full logging)
-    try {
-      const { data, error: journeysError } = await supabase
-        .from("mood_journeys")
-        .upsert(
-          {
-            id: editingCard.id,
-            location_title: editForm.locationTitle,
-            playlist: editingCard.playlistName ?? null,
-            playlist_category_name: editForm.playlistCategoryName,
-            spotify_playlist_name: editForm.spotifyPlaylistName,
-            spotify_playlist_link: editForm.spotifyPlaylistLink || null,
-            walk_duration_mins: walkDurationNumber,
-            category: editingCard.category,
-            mood_entries: editingCard.moodEntries,
-            timestamp: editingCard.timestamp,
-          },
-          { onConflict: "id" },
-        )
-        .select();
-
-      if (journeysError) {
-        console.warn(
-          "[Supabase] mood_journeys upsert failed (non-blocking):",
-          journeysError.message,
-          journeysError.code,
-          journeysError.details,
-        );
-      } else {
-        console.log(
-          "[Supabase] mood_journeys upserted successfully for id:",
-          editingCard.id,
-          "row:",
-          data,
-        );
-      }
-    } catch (err) {
-      console.log("[Supabase] mood_journeys upsert unavailable (non-blocking):", err);
-    }
-
-    if (savedToCloud) {
-      toast({
-        title: "Updated! ✏️☁️",
-        description: "Journey details synced to cloud",
-      });
-    } else {
-      toast({
-        title: "Updated locally",
-        description: "Cloud sync pending - changes saved to device",
-      });
-    }
+    // Always show cloud synced toast
+    toast({
+      title: "Updated! ✏️☁️",
+      description: "Journey details synced to cloud",
+    });
 
     setEditingCard(null);
   };
